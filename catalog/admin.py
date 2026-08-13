@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Brand, Product, Look
+from .models import Brand, Product, Look, PieceAttribute
 
 
 @admin.register(Brand)
@@ -21,3 +21,10 @@ class ProductAdmin(admin.ModelAdmin):
 class LookAdmin(admin.ModelAdmin):
     list_display = ("brand", "index", "season")
     list_filter = ("brand",)
+
+
+@admin.register(PieceAttribute)
+class PieceAttributeAdmin(admin.ModelAdmin):
+    list_display = ("product", "category", "model_id", "enriched_at")
+    list_filter = ("category", "model_id")
+    search_fields = ("product__title",)

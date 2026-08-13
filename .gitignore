@@ -17,3 +17,6 @@ following.json
 .DS_Store
 .vscode/
 .idea/
+
+# Claude Code local tooling (permissions, launch config)
+.claude/

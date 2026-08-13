@@ -81,6 +81,89 @@ class Product(models.Model):
         return f"{self.brand.name} — {self.title}"
 
 
+class PieceAttribute(models.Model):
+    """Vision-derived, category-aware attributes for one Product — the depth
+    layer the taste graph derives patterns from. See docs/taste-graph.md §4.
+
+    `attributes` holds the full structured object a Claude vision pass returns
+    (category, shared dims, category-specific block). `piece_tags` is that object
+    flattened to a list of `dim:value` strings so pattern counting is a plain
+    aggregation. `model_id` + `enriched_at` record provenance for reproducibility."""
+
+    product = models.OneToOneField(
+        Product, related_name="attribute", on_delete=models.CASCADE
+    )
+    category = models.CharField(max_length=20, blank=True)  # apparel/footwear/jewelry/…
+    attributes = models.JSONField(default=dict, blank=True)  # full structured object
+    piece_tags = models.JSONField(default=list, blank=True)  # flattened dim:value tags
+    model_id = models.CharField(max_length=60, blank=True)
+    enriched_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"attrs<{self.product.title[:40]}>"
+
+
+class HouseLore(models.Model):
+    """LLM-derived depth for a house's "long view" (docs/taste-graph.md house study):
+    its house codes (signature aesthetics/motifs), a one-line essence, and a real
+    history (founding rationale + milestones). `known` records whether the model
+    genuinely recognised the house vs. derived it from the brief."""
+
+    brand = models.OneToOneField(Brand, related_name="lore", on_delete=models.CASCADE)
+    codes = models.JSONField(default=list, blank=True)      # ["the human body", "surrealism", …]
+    essence = models.CharField(max_length=400, blank=True)  # one sharp sentence — the core idea
+    history = models.JSONField(default=list, blank=True)     # [{year, head, text}, …]
+    directors = models.JSONField(default=list, blank=True)   # [{name, era, current, vision}, …] creative directors
+    known = models.BooleanField(default=False)               # model recognised this specific house
+    model_id = models.CharField(max_length=60, blank=True)
+    enriched_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"lore<{self.brand.name}>"
+
+
+class Collection(models.Model):
+    """A signature collection under a creative director — the archive imagery layer
+    (docs/archive-imagery.md). `why` is a critic's one-liner; the image fields are filled
+    later by resolve_archive_images from museum open-access sources (CC0/CC)."""
+
+    brand = models.ForeignKey(Brand, related_name="collections", on_delete=models.CASCADE)
+    director_name = models.CharField(max_length=200, blank=True)
+    season = models.CharField(max_length=80, blank=True)   # "Fall 2019", "Spring 2003"
+    year = models.CharField(max_length=12, blank=True)
+    title = models.CharField(max_length=200, blank=True)
+    why = models.TextField(blank=True)                     # a critic's read of the collection
+    order = models.PositiveIntegerField(default=0)         # chronological within the house
+    # filled by the image resolver (Phase 2) — only ever a usably-licensed image
+    image_url = models.URLField(max_length=1000, blank=True)
+    source = models.CharField(max_length=60, blank=True)   # wikimedia · met · vam · europeana
+    source_url = models.URLField(max_length=1000, blank=True)  # the file/object page — attribution + verification
+    license = models.CharField(max_length=80, blank=True)  # CC0 · CC-BY · public domain
+    credit = models.CharField(max_length=300, blank=True)
+    model_id = models.CharField(max_length=60, blank=True)
+
+    class Meta:
+        ordering = ["brand", "order"]
+
+    def __str__(self):
+        return f"{self.brand.name} — {self.title or self.season}"
+
+
+class NodePosition(models.Model):
+    """The saved "Yours" arrangement on the taste-graph desk — one x/y per node id
+    (docs/taste-graph.md §7). Node ids are the graph's synthetic ids
+    (`piece:<uuid>`, `house:<key>`, `pattern:<dim>:<value>`, `board:<slug>`…),
+    so this isn't a FK. Single-user v1."""
+
+    node_id = models.CharField(max_length=200, unique=True)
+    x = models.FloatField()
+    y = models.FloatField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.node_id} @ ({self.x:.0f},{self.y:.0f})"
+
+
 class Look(models.Model):
     """One runway look for an editorial house. Blank image_url => placeholder tile."""
 

@@ -1,111 +1,164 @@
-# ÉDIT — Design Brief & Prompt (for iterating in Claude)
+# Nishi 西 — Design Brief v3: a second brain for style
 
-Paste the **PROMPT** block below into a new Claude chat to iterate on the visual design. Everything under it is reference Claude can draw on. There's one hard constraint about images — read the ⚠️ section first.
+Paste the **PROMPT** block into Claude to iterate on the look. Everything under it is
+reference. Read the ⚠️ note first if you're designing inside a Claude Artifact.
 
 ---
 
-## ⚠️ Read this first: images won't load in a Claude Artifact
+## What Nishi is
 
-The real product photos are hosted on Shopify's CDN (`cdn.shopify.com`). Claude Artifacts run under a strict Content-Security-Policy that **blocks every external image, font, and script**. So in the artifact, real product images will *not* render.
+A **second brain for style.** A personal, ever-growing web of the houses, pieces, looks,
+colours and ideas that make up your eye. Not a magazine you read cover to cover — a living
+collection you **tend, wander, and connect**. Think *Are.na for your taste*, with the warmth
+and wit of a hand-kept scrapbook.
 
-**How to design around it:**
-- Have Claude render every image area as a **styled placeholder tile** — a fixed `aspect-ratio` box with a subtle gradient/tone and the piece (or brand) name set in it. This keeps layout, rhythm, and motion honest.
-- Do the design/motion work on placeholders. When you're happy, bring the direction back to the **local prototype** (`prototype/index.html`), which opens via `file://` in a normal browser where the real Shopify images load fine.
-- (Optional) If you want a few *real* thumbnails in the artifact, ask me to export ~6 images as base64 data-URIs and I'll paste them in — data-URIs are allowed under CSP.
+You follow houses, capture what moves you, discover adjacent labels, keep a diary, and build
+boards — and the **connections between all of it surface over time**. Shopping might come
+later; it isn't the point. The point is **taste, memory, discovery, and play**.
 
-Fonts (Google Fonts) also won't load in an artifact — Claude should use a serif/sans **system fallback stack** there (e.g. Georgia + system-ui), and we restore Fraunces + Inter in the local version.
+---
+
+## The core shift: from *magazine* → *second brain*
+
+This is the big change from v1/v2. The old design framed Nishi as a beautifully-structured
+**publication** — an almanac with a numbered index, "house of the week," dispatches, sections
+read in order. But a second brain isn't editorial and top-down; it's **associative, personal,
+and emergent**. Change the bones:
+
+- **Everything is a node; connections are first-class.** Brands, pieces, looks, boards, notes,
+  moods, colours — all link. **Tags are the connective tissue** (already in the data). Surface
+  relationships everywhere: *reminds me of, appears in, adjacent to,* backlinks.
+- **Enter from anywhere, follow the thread.** No fixed reading order. Click a tag (`minimalist`,
+  `Tokyo`, `sculptural`) → everything that shares it. Click a piece → its house → adjacent
+  houses → the board it lives in. You *wander*, you don't *page through*.
+- **Frictionless capture.** The inbox of your brain: paste a URL, clip an image (Instagram /
+  Pinterest), jot a note — from anywhere. Low friction in; structure emerges later.
+- **It reflects you back — and surprises you.** Resurfacing (*"you saved this in March"*),
+  patterns (*"you keep returning to slip silhouettes"*), and connections you didn't make
+  yourself (Discover, the taste graph).
+- **Your structure, not a prescribed one.** Boards, tags, collections are *yours*. Nishi
+  organises around your eye, not an editor's table of contents.
+
+Keep the elegance and the whimsy — they're the *feel*. Change the **structure** from
+publication to knowledge-web.
+
+---
+
+## The look: *elevated whimsy* (still right — it's how the brain feels)
+
+Elegant bones, hand-made soul. The feeling of a beloved, well-kept **commonplace book / scrapbook**
+a stylish, funny friend keeps — clippings taped in, margin notes, stickers, stamps, doodled
+arrows — crossed with the associative freedom of an **Are.na board**. Refined taste **and** play.
+Grown-up, never cutesy. *Keep the elegance. Add the hand. Add the joke.*
+
+**Reference the *feeling* of:** Are.na · Paloma Wool's website · Google Mixboard · risograph zines ·
+a well-loved Filofax/planner · Polaroid & ticket-stub collage · Perfectly Imperfect / Blackbird
+Spyplane (the *voice*) · commonplace books. (Moods, not templates.)
+
+### Six aesthetic moves
+1. **Collage & the hand.** Cards tilt slightly (±1–3°), overlap, sit like clippings taped into a
+   book — tape strips, torn edges, soft shadows. **Hand-drawn SVG marks** annotate: a circle round
+   a favourite, an arrow to the taste readout, an underline, a star. The ♥ pin is a **sticker** that
+   sticks with a bounce.
+2. **A playful, tasteful palette.** Keep warm-paper + ink + terracotta, add a small candy-adjacent
+   set — *butter, periwinkle, pistachio, tomato, ink-blue* — used sparingly. **Colour-code the five
+   occasions** (Casual / Date Night / Events / Athleisure / Jewelry), each a hue + a little icon.
+   Colour as wayfinding *and* joy.
+3. **Type with voice.** An elegant serif spine **plus** a characterful display face for playful
+   headlines, and lean hard into a **handwriting face** for annotations/asides.
+4. **Micro-delight.** Cards lift/tilt on hover; a pin **bounces** (tiny spark) on save; handwritten
+   marquees; a sticker-ish cursor. Respect `prefers-reduced-motion`.
+5. **Wit in the copy.** Warm, first-person, a touch cheeky — a smart, funny friend, not a press
+   release. *"your eye, so far," "broaden the eye," "clipped today," "not for me."*
+6. **Texture.** A faint warm-paper grain and a **dot-grid** (planner vibe) on board/diary surfaces.
+   One recurring **motif** — a scribbled star, or an **eye** ("your eye") — as Nishi's mark.
+
+---
+
+## The surfaces, reframed as brain functions
+
+Stop thinking "sections of a magazine," start thinking "things a second brain does":
+
+- **Capture** — frictionless quick-add (URL / image / note) available *everywhere*; the What's New
+  feed is fresh inflow from your houses.
+- **Connect** — tags & links as first-class citizens. Every piece/house shows what it connects to:
+  shared tags, adjacent houses, the boards it appears in. Click any tag to pivot the whole view.
+- **Explore** — the old rigid Almanac becomes an **explorable map** you enter by tag / mood / city /
+  tier / connection, annotated in your own hand — not a fixed index. **Discover** is the serendipity
+  engine ("for your eye" / "broaden the eye").
+- **Synthesise** — **Boards** (the Mixboard-style canvas) and the **Diary**: where you *make meaning* —
+  collage, arrange, annotate, reflect. Let these be the most playful.
+- **Reflect** — the taste readout, resurfacing, *"your eye, then vs now."* The brain, learning.
+
+---
+
+## Do / Don't
+
+- **DO** make connections visible and clickable — that's the whole idea. Tags, "related," backlinks.
+- **DO** keep it elevated — whimsy through *craft and restraint*, not clutter. One or two hand-elements
+  per view. Colour with a light hand.
+- **DON'T** rebuild a rigid magazine index. Favour wandering over reading-order.
+- **DON'T** slide into cutesy/childish or lose fashion credibility. Grown-up playful. No Comic Sans,
+  no clip-art, no emoji soup.
+- **DO** keep contrast/legibility and honour reduced-motion; don't let tilt/texture hurt readability.
 
 ---
 
 ## PROMPT — paste this into Claude
 
-> I'm designing **ÉDIT**, a personal "fashion almanac" web app: a place to follow independent/international clothing labels, pin pieces I love, and browse them by occasion. Think **editorial magazine meets an art-gallery index** — closest reference is the Obys Agency site (`experiment.obys.agency/about`): momentum scrolling, a tight numbered table-of-contents, big kinetic typography, hover-preview images, scroll-reveal animations, and a contextual custom cursor.
+> I'm designing **Nishi**, a **second brain for style** — a personal, associative web of the fashion
+> houses, pieces, looks and ideas that make up someone's taste. Think *Are.na for fashion* crossed
+> with a hand-kept scrapbook: you follow houses, capture what you love, discover adjacent labels, keep
+> a style diary, and build boards — and the *connections* between everything (shared tags, adjacent
+> houses, boards a piece lives in, recurring moods) are surfaced everywhere. It is NOT a shop and NOT a
+> structured magazine — no rigid index or reading order; you wander and follow threads.
 >
-> Build it as a single self-contained HTML page (inline CSS + vanilla JS). **Do not fetch any external images, fonts, or scripts** — render every product/brand image as a styled placeholder tile (aspect-ratio box, soft gradient, piece name inside), and use a system serif + sans font stack. I'll swap real assets in later.
+> The visual language is **elevated whimsy**: elegant bones with a hand-made soul — collage (cards
+> tilted/overlapping like taped-in clippings), hand-drawn SVG annotations (circles, arrows, stars),
+> ♥ pins as stickers, a warm-paper + ink + terracotta base with a small candy-adjacent accent palette
+> used sparingly, the five occasions colour-coded, an elegant serif + a characterful display face + a
+> handwriting face, a faint paper grain / dot-grid, and warm witty first-person copy. Grown-up playful,
+> never cutesy.
 >
-> **Structure (top to bottom):**
-> 1. A brief loader, then a full-height **hero**: oversized serif headline "The brands worth knowing."
-> 2. An **Index** — a tight, numbered two-column list of all the labels (`No.` / `Label` / short meta on the right), hairline rules between rows, pure white. Hovering a row floats a preview image near the cursor and nudges the row. This is the signature moment — match the Obys index feel.
-> 3. **The Houses** — a directory grid of brand cards (image, name, piece count, Follow toggle, "Shop ↗").
-> 4. Three occasion chapters — **Casual**, **Date Night**, **Events** — each a big serif chapter title + a mixed grid of pieces, brand name labelled on every card. A ♥ pin button on each card (persists to localStorage).
-> 5. A **"Follow a label"** input (paste a URL) and a footer.
+> Build a single self-contained HTML page (inline CSS + vanilla JS). **Do not fetch external
+> images/fonts/scripts** — placeholder tiles for imagery, system font stack. Respect reduced-motion.
 >
-> **Motion:** momentum/eased scroll, line-by-line reveals (headings mask up, cards fade+rise), a custom cursor that grows and shows a contextual label ("pin", "view"), a drifting italic marquee between chapters, and a live side-rail that tracks the active chapter.
->
-> **Feel:** white background, near-black warm ink `#14110b`, a single terracotta accent `#8a3b2e`, hairline warm-grey rules `#e6e3dd`. Editorial, calm, lots of negative space, confident type. Display serif for headlines, clean sans for UI/labels.
->
-> Use this sample data shape (I'll provide the full set): [paste the DATA SAMPLE block below].
->
-> Start by giving me the full page, then I'll direct changes.
+> **Realise ONE screen fully first: a "node" view** — a single piece (or house) shown as a card in its
+> web of connections: its tags (clickable), the house it's from, a few *adjacent houses* ("reminds me
+> of…"), the boards it appears in, and a handwritten note — all as a tactile, collaged, annotated
+> layout that makes the associative, second-brain nature obvious. Then we'll roll the language across
+> Capture (feed), Explore (map + Discover), and Synthesise (a Board / the Diary). Give me the page,
+> then I'll direct changes.
 
 ---
 
 ## Reference appendix
 
-### Concept & goals
-- **User problem:** follows lots of brands on Instagram but never keeps up; finds SSENSE overwhelming. Wants a calm, personal wall to follow labels, pin items, and discover adjacent brands.
-- **Vibe:** editorial/magazine + kinetic (Obys). Not a store; a *reading room* for labels.
-- **Roadmap beyond design:** taste-learning (a "Your eye, so far" readout that profiles pins by occasion/brand/colour), then brand discovery (similar + deliberately-adjacent suggestions).
-
-### Information architecture
-- **Chapters = occasion categories** (Casual / Date Night / Events). Pieces from all brands mix within a chapter, brand-labelled.
-- **The Houses** = the brand directory (all labels).
-- **Index** = numbered list of every label (Obys-style), jumps to that house.
-
-### Visual system (current local build)
-| Token | Value |
+### From magazine → second brain, concretely
+| v1/v2 (magazine) | v3 (second brain) |
 |---|---|
-| Background | `#ffffff` |
-| Ink (text) | `#14110b` |
-| Muted | `#8a857c` |
-| Hairline rule | `#e6e3dd` |
-| Accent | `#8a3b2e` (terracotta) |
-| Image placeholder tone | `#efede8` |
-| Display font | Fraunces (serif) — fallback Georgia/serif |
-| UI font | Inter (sans) — fallback system-ui |
-| Motion easing | `cubic-bezier(.19,1,.22,1)` |
+| Numbered index, read in order | Enter by tag/mood/connection; wander |
+| "House of the week," Dispatches | Resurfacing, serendipity, patterns |
+| Sections | A web of linked nodes |
+| Editor's structure | *Your* boards/tags/collections |
+| Look at it | Tend it, connect it, add to it |
 
-**Tight index spec:** grid `92px | 1fr | auto`; header row `No. / Label / meta` in muted 12.5px; each row 15px with a 1px bottom rule; on hover the row pads left ~14px and the right meta darkens; hovering floats a ~210×270 preview image that lerps toward the cursor.
+### The connective data already exists
+Every house is tagged with **aesthetic + region tags** (`minimalist`, `sculptural`, `french`,
+`japanese`, …) and a **price tier**; Discover already ranks adjacency by shared tags/tier/city.
+That tag graph *is* the second brain's wiring — the design should make it visible and clickable.
 
-### Interactions to preserve
-- **Pin (♥)** on each card → persists to `localStorage`, drives the pinned-only filter and the taste readout.
-- **Follow** toggle per house.
-- **Custom cursor** labels: `pin` / `saved` / `view`.
-- **Pinned mode** (top-right button) filters the wall to pinned pieces.
-- **Taste readout** (bottom-left) summarises pins: "Leaning *Events · L'IDÉE WOMAN · Plum*".
+### The five occasions (colour + icon each)
+Casual · Date Night · Events · Athleisure · Jewelry. (Plus tiers: Luxury Designer / Affordable
+Luxury / Contemporary.)
 
-### Motion notes for the real app
-The local prototype hand-rolls momentum scroll. For production (React), use **Lenis** for smooth scroll and **IntersectionObserver** (or Lenis' scroll event) for reveals — sturdier than the hand-rolled loop.
+### ⚠️ Designing inside a Claude Artifact
+Artifacts block external images/fonts/scripts (CSP). Use **placeholder tiles** and system fonts;
+bring the direction back to the real app (`edit-web/`) where real assets load. Ask me to export a
+few base64 images if you want real thumbnails.
 
-### DATA SAMPLE (give Claude this shape; full set is `prototype/data.js`)
-```json
-{
-  "brands": {
-    "toteme": { "key":"toteme", "name":"Totême", "domain":"toteme.com",
-      "url":"https://toteme.com/", "hero":"<image-url>", "count":7, "primary":"datenight" },
-    "khaite": { "key":"khaite", "name":"Khaite", "domain":"khaite.com",
-      "url":"https://khaite.com/", "hero":"<image-url>", "count":7, "primary":"casual" }
-  },
-  "items": [
-    { "id":"toteme-123", "brand":"toteme", "brandName":"Totême", "title":"Silk Slip Dress",
-      "color":"Ivory", "price":"$690", "occasion":"datenight",
-      "img":"<image-url>", "img2":"<image-url>", "url":"<product-url>", "avail":true }
-  ],
-  "sections": [
-    {"key":"casual","label":"Casual","blurb":"Off-duty ease…"},
-    {"key":"datenight","label":"Date Night","blurb":"Something with intention…"},
-    {"key":"events","label":"Events","blurb":"Full-length statements…"}
-  ]
-}
-```
-*(Reminder: in the artifact, don't load the `img` URLs — render placeholders. The real `data.js` has 28 brands / 196 pieces.)*
-
-### Files in this project
-- `prototype/index.html` — the working prototype (open with `open prototype/index.html`).
-- `prototype/data.js` — the real pulled data (28 brands, 196 pieces).
-- `resolved_all.json` — the Instagram-handle → Shopify-store resolver output.
-
-### Things to explore (open questions for design)
-- Does the Index list **brands** (current) or should it list **chapters**, with brands nested? At 32 labels the flat brand-list reads well; revisit as it grows.
-- How to show a **single brand's full story** (founder, city, creative director) — a detail view? a hover expand?
-- Where discovery ("brands like this") should surface without cluttering the calm.
+### The real app (for when the direction is settled)
+- `edit-web/` — React + Vite + TS frontend (feed, discover, boards, diary, brand pages).
+- `prototype/edit.html` — the v1 "magazine" design (the *before*).
+- Backend serves real data: 84 houses, products, editorial runway looks, tags, discovery recs.
+  (App/code still uses the working name "edit"; renaming to Nishi is a later, separate pass.)

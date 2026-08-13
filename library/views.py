@@ -8,8 +8,8 @@ from rest_framework.response import Response
 
 from catalog.models import Brand, Product
 from catalog.serializers import ProductSerializer
-from .models import Follow, Board, Pin, DiaryEntry, Connection
-from .serializers import BoardSerializer, PinSerializer, DiaryEntrySerializer, ConnectionSerializer
+from .models import Follow, Board, Pin, DiaryEntry, Connection, Clip
+from .serializers import BoardSerializer, PinSerializer, DiaryEntrySerializer, ConnectionSerializer, ClipSerializer
 
 
 # ---- follows ----
@@ -33,16 +33,55 @@ def board_list(request):
         name = (request.data.get("name") or "").strip()
         if not name:
             return Response({"detail": "name required"}, status=400)
+        description = (request.data.get("description") or "").strip()
+        tags = request.data.get("tags") or []
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
         slug = slugify(name) or "board"
-        board, _ = Board.objects.get_or_create(slug=slug, defaults={"name": name})
+        board, _ = Board.objects.get_or_create(
+            slug=slug, defaults={"name": name, "description": description, "tags": tags}
+        )
         return Response(BoardSerializer(board).data, status=201)
-    qs = Board.objects.annotate(pin_count=Count("pins"))
+    qs = Board.objects.filter(archived=False).annotate(pin_count=Count("pins"))
     return Response(BoardSerializer(qs, many=True).data)
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH", "DELETE"])
 def board_detail(request, slug):
-    board = get_object_or_404(Board.objects.annotate(pin_count=Count("pins")), slug=slug)
+    board = get_object_or_404(Board, slug=slug)
+    if request.method == "DELETE":
+        # permanent — takes its BoardItems and Pins with it (cascade)
+        board.delete()
+        return Response(status=204)
+    if request.method == "PATCH":
+        # rename / re-describe / re-tag after creation. The slug stays fixed so existing
+        # BoardItems and the board-graph URL keep working; only the display fields change.
+        if "name" in request.data:
+            name = (request.data.get("name") or "").strip()
+            if name:
+                board.name = name
+        if "description" in request.data:
+            board.description = (request.data.get("description") or "").strip()
+        if "tags" in request.data:
+            tags = request.data.get("tags") or []
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split(",") if t.strip()]
+            board.tags = tags
+        if "open_thread" in request.data:
+            # only one board is the header's "open thread" at a time
+            if bool(request.data.get("open_thread")):
+                Board.objects.exclude(pk=board.pk).update(is_open_thread=False)
+                board.is_open_thread = True
+            else:
+                board.is_open_thread = False
+        if "archived" in request.data:
+            board.archived = bool(request.data.get("archived"))
+            if board.archived:
+                board.is_open_thread = False  # an archived board can't be the header thread
+        board.save()
+        return Response(BoardSerializer(board).data)
+
+    board = Board.objects.annotate(pin_count=Count("pins")).get(pk=board.pk)
     pins = board.pins.select_related("product", "product__brand")
     return Response({
         "board": BoardSerializer(board).data,
@@ -131,3 +170,58 @@ def taste(request):
 
 TIER_LABELS = [("luxury", "Luxury Designer"), ("premium", "Affordable Luxury"),
                ("contemporary", "Contemporary")]
+
+
+# ---- capture (the inbox) ----
+@api_view(["POST"])
+def capture(request):
+    """Clip a thought / link / image → Claude classifies the kind → create a Clip that
+    lands on the desk as that node type, optionally pinned to a board."""
+    import anthropic
+    from catalog.enrich import classify_capture
+
+    text = (request.data.get("text") or "").strip()
+    url = (request.data.get("url") or "").strip()
+    image_url = (request.data.get("image_url") or "").strip()
+    if not (text or url or image_url):
+        return Response({"detail": "nothing to clip"}, status=400)
+
+    try:
+        triage = classify_capture(text=text, url=url, image_url=image_url, client=anthropic.Anthropic())
+    except Exception as e:
+        # if the classifier is unavailable, fall back to a plain note/clip
+        triage = {"kind": "clip" if (image_url or url) else "note",
+                  "title": text[:80] or url[:80] or "Clipping", "tags": [], "model_id": ""}
+        _ = e
+
+    board = None
+    board_slug = (request.data.get("board") or "").strip()
+    if board_slug:
+        board = Board.objects.filter(slug=board_slug).first()
+
+    clip = Clip.objects.create(
+        kind=triage["kind"], title=triage["title"], text=text, url=url, image_url=image_url,
+        tags=triage["tags"], board=board, model_id=triage.get("model_id", ""),
+    )
+    return Response(ClipSerializer(clip).data, status=201)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+def clip_detail(request, clip_id):
+    clip = get_object_or_404(Clip, pk=clip_id)
+    if request.method == "DELETE":
+        clip.delete()
+        return Response(status=204)
+    if request.method == "PATCH":
+        for field in ("kind", "title", "text", "url", "image_url"):
+            if field in request.data:
+                setattr(clip, field, request.data[field])
+        if "tags" in request.data:
+            tags = request.data["tags"]
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split(",") if t.strip()]
+            clip.tags = tags
+        if "board" in request.data:
+            clip.board = Board.objects.filter(slug=request.data["board"]).first()
+        clip.save()
+    return Response(ClipSerializer(clip).data)

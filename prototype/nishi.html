@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="page">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..600;1,6..72,200..500&family=Caveat:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #fbfaf8; color: #141310; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  a { color: #141310; text-decoration: none; }
+  a:hover { color: #8f4331; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(34px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</helmet>
+
+<div ref="{{ root }}" style="height: 100vh; display: grid; grid-template-rows: auto 1fr auto; background: #fbfaf8;">
+
+  <!-- ── status rail ── -->
+  <header style="display: grid; grid-template-columns: 1.1fr 1.2fr 1fr 1fr auto; gap: 24px; align-items: baseline; padding: 12px 22px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;">
+    <div>
+      <div>Nishi 西</div>
+      <div style="color: #7d776b;">Taste graph</div>
+    </div>
+    <div>
+      <div style="color: #7d776b;">Open thread</div>
+      <div>The collar theory</div>
+    </div>
+    <div>
+      <div style="color: #7d776b;">Your graph</div>
+      <div><span ref="{{ statPins }}">0</span> pinned &middot; <span ref="{{ statFollows }}">1</span> followed</div>
+    </div>
+    <div>
+      <div style="color: #7d776b;">Session</div>
+      <div>21.07 &mdash; 14:02</div>
+    </div>
+    <div style="display: flex; gap: 14px;">
+      <button ref="{{ tabGraph }}" onClick="{{ toGraph }}" style="cursor: pointer; background: none; border: none; font: inherit; letter-spacing: .14em; text-transform: uppercase; color: #141310; padding: 0;">Graph</button>
+      <button ref="{{ tabList }}" onClick="{{ toList }}" style="cursor: pointer; background: none; border: none; font: inherit; letter-spacing: .14em; text-transform: uppercase; color: #7d776b; padding: 0;">List</button>
+    </div>
+  </header>
+
+  <div style="display: grid; grid-template-columns: 268px 1fr; min-height: 0;">
+
+    <!-- ── index of everything ── -->
+    <aside style="border-right: 1px solid #141310; display: flex; flex-direction: column; min-height: 0; background: #f6f4ef;">
+      <div style="padding: 13px 16px 12px; border-bottom: 1px solid rgba(20,19,16,.28);">
+        <div style="font-family: Newsreader, serif; font-style: italic; font-size: 19px; padding-bottom: 9px;">Index of everything</div>
+        <input ref="{{ q }}" onInput="{{ filter }}" placeholder="Type to filter&hellip;" style="width: 100%; border: 1px solid rgba(20,19,16,.28); background: #fff; padding: 7px 9px; font-family: Newsreader, serif; font-size: 14px; color: #141310; outline: none;">
+      </div>
+
+      <div ref="{{ index }}" style="overflow: auto; flex: 1; padding-bottom: 20px;">
+
+        <div data-group="pieces" style="padding-top: 4px;">
+          <div style="display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 11px 16px 7px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331;">
+            <span>01</span><span>Pieces</span><span data-count>2</span>
+          </div>
+          <button data-open="collar" data-name="sculpted poplin collar piece" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">01</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Sculpted poplin collar</span>
+          </button>
+          <button data-open="bias" data-name="bias slip atelier fleuve piece" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">02</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Bias slip, Atelier Fleuve</span>
+          </button>
+        </div>
+
+        <div data-group="houses">
+          <div style="display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 15px 16px 7px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331;">
+            <span>02</span><span>Houses</span><span data-count>3</span>
+          </div>
+          <button data-open="maisonoda" data-name="maison oda house tokyo" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">03</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Maison Oda</span>
+            <span data-follow-mark="maisonoda" style="font-family: Newsreader, serif; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8f4331;">following</span>
+          </button>
+          <button data-open="tsuki" data-name="tsuki atelier house kyoto suggested" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">04</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Tsuki Atelier</span>
+            <span data-follow-mark="tsuki" style="font-family: Newsreader, serif; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #a09a8d;">suggested</span>
+          </button>
+          <button data-open="fleuve" data-name="atelier fleuve house paris suggested" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">05</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Atelier Fleuve</span>
+            <span data-follow-mark="fleuve" style="font-family: Newsreader, serif; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #a09a8d;">suggested</span>
+          </button>
+        </div>
+
+        <div data-group="patterns">
+          <div style="display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 15px 16px 7px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331;">
+            <span>03</span><span>Patterns &middot; derived</span><span data-count>2</span>
+          </div>
+          <button data-open="stiff" data-name="stiff collars pattern structure" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">06</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Stiff collars</span>
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d;">9</span>
+          </button>
+          <button data-open="undyed" data-name="unbleached cotton pattern raw undyed" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">07</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Unbleached cotton</span>
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d;">5</span>
+          </button>
+        </div>
+
+        <div data-group="boards">
+          <div style="display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 15px 16px 7px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331;">
+            <span>04</span><span>Boards &middot; yours</span><span data-count>2</span>
+          </div>
+          <button data-open="collartheory" data-name="the collar theory board" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">08</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">The collar theory</span>
+            <span data-board-count="collartheory" style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d;">14</span>
+          </button>
+          <button data-open="tokyo" data-name="tokyo quietly board japanese" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">09</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Tokyo, quietly</span>
+            <span data-board-count="tokyo" style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d;">31</span>
+          </button>
+        </div>
+
+        <div data-group="clippings">
+          <div style="display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 15px 16px 7px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331;">
+            <span>05</span><span>Clippings &amp; notes</span><span data-count>2</span>
+          </div>
+          <button data-open="runway" data-name="look 22 autumn clipping runway" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">10</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Look 22, autumn</span>
+          </button>
+          <button data-open="note" data-name="ask the tailor note grey shirt" onClick="{{ focus }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.14); padding: 10px 16px; display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: baseline; transition: background .25s ease;" style-hover="background: #fffdf9">
+            <span style="font-family: Newsreader, serif; font-size: 11px; color: #a09a8d; font-variant-numeric: tabular-nums;">11</span>
+            <span style="font-family: Newsreader, serif; font-size: 16px;">Ask the tailor</span>
+          </button>
+        </div>
+
+        <div ref="{{ noHits }}" style="display: none; padding: 22px 16px; font-family: Newsreader, serif; font-style: italic; font-size: 16px; color: #7d776b;">Nothing by that name yet &mdash; clip it below.</div>
+      </div>
+
+      <div style="border-top: 1px solid rgba(20,19,16,.28); padding: 13px 16px; font-family: Caveat, cursive; font-size: 20px; color: #8f4331;">drag pins to think &mdash; the lines follow</div>
+    </aside>
+
+    <!-- ── right column: desk or list ── -->
+    <div style="position: relative; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 8px 16px; border-bottom: 1px solid rgba(20,19,16,.28); font-family: Newsreader, serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="color: #7d776b;">Arrangement</span>
+          <button ref="{{ lensFree }}" onClick="{{ setFree }}" style="cursor: pointer; background: #141310; color: #fbfaf8; border: 1px solid #141310; padding: 6px 12px; font: inherit; letter-spacing: .14em; text-transform: uppercase;">Yours</button>
+          <button ref="{{ lensDiary }}" onClick="{{ setDiary }}" style="cursor: pointer; background: none; color: #141310; border: 1px solid rgba(20,19,16,.3); padding: 6px 12px; font: inherit; letter-spacing: .14em; text-transform: uppercase;">By day clipped</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span ref="{{ lensHint }}" style="font-family: Caveat, cursive; font-size: 19px; text-transform: none; letter-spacing: 0; color: #7d776b;">your arrangement is saved as you move</span>
+          <button onClick="{{ zoomOut }}" style="cursor: pointer; background: none; border: 1px solid rgba(20,19,16,.3); width: 26px; height: 26px; font: inherit; font-size: 13px;" style-hover="background: rgba(20,19,16,.06)">&minus;</button>
+          <button onClick="{{ zoomIn }}" style="cursor: pointer; background: none; border: 1px solid rgba(20,19,16,.3); width: 26px; height: 26px; font: inherit; font-size: 13px;" style-hover="background: rgba(20,19,16,.06)">+</button>
+          <button onClick="{{ reset }}" style="cursor: pointer; background: none; border: 1px solid rgba(20,19,16,.3); padding: 6px 12px; font: inherit; letter-spacing: .14em; text-transform: uppercase;" style-hover="color: #8f4331">Recentre</button>
+        </div>
+      </div>
+
+      <sc-if value="{{ isGraph }}" hint-placeholder-val="{{ true }}">
+        <div ref="{{ stage }}" style="position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; background-image: linear-gradient(rgba(20,19,16,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(20,19,16,.07) 1px, transparent 1px); background-size: 34px 34px;">
+          <div ref="{{ pan }}" style="position: absolute; top: 0; left: 0; width: 1520px; height: 980px; transform-origin: 0 0; will-change: transform;">
+
+            <svg ref="{{ svg }}" width="1520" height="980" style="position: absolute; top: 0; left: 0; pointer-events: none;">
+              <g stroke="#141310" stroke-opacity=".38" stroke-width="1">
+                <line data-from="collar" data-to="maisonoda"></line>
+                <line data-from="collar" data-to="stiff"></line>
+                <line data-from="collar" data-to="runway"></line>
+                <line data-from="collar" data-to="tokyo"></line>
+                <line data-from="stiff" data-to="note"></line>
+                <line data-from="stiff" data-to="tsuki"></line>
+                <line data-from="stiff" data-to="collartheory"></line>
+                <line data-from="runway" data-to="collartheory"></line>
+                <line data-from="tokyo" data-to="tsuki"></line>
+                <line data-from="tokyo" data-to="bias"></line>
+                <line data-from="bias" data-to="undyed"></line>
+                <line data-from="bias" data-to="fleuve"></line>
+                <line data-from="fleuve" data-to="undyed"></line>
+                <line data-from="tsuki" data-to="undyed"></line>
+              </g>
+              <g stroke="#8f4331" stroke-width="1.2" stroke-dasharray="6 6">
+                <line data-from="runway" data-to="bias"></line>
+              </g>
+              <g ref="{{ pinEdges }}" stroke="#8f4331" stroke-width="1.6"></g>
+            </svg>
+
+            <div data-day="1" style="display: none; position: absolute; left: 80px; top: 40px; width: 240px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331; border-bottom: 1px solid #141310; padding-bottom: 6px;">04 March</div>
+            <div data-day="2" style="display: none; position: absolute; left: 420px; top: 40px; width: 240px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331; border-bottom: 1px solid #141310; padding-bottom: 6px;">29 June</div>
+            <div data-day="3" style="display: none; position: absolute; left: 760px; top: 40px; width: 240px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331; border-bottom: 1px solid #141310; padding-bottom: 6px;">18 July</div>
+            <div data-day="4" style="display: none; position: absolute; left: 1100px; top: 40px; width: 240px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #8f4331; border-bottom: 1px solid #141310; padding-bottom: 6px;">21 July &middot; today</div>
+            <div data-day="5" style="display: none; position: absolute; left: 80px; top: 690px; width: 1300px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #7d776b; border-top: 1px solid #141310; padding-top: 6px;">No date &mdash; derived by Nishi, and yours</div>
+
+            <div data-node="maisonoda" data-open="maisonoda" onClick="{{ open }}" style="position: absolute; left: 250px; top: 150px; width: 208px; cursor: grab; background: #fff; border: 1px solid #141310; padding: 11px 13px 13px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <span data-pinmark style="display: none; position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; background: #8f4331;"></span>
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b; border-bottom: 1px solid rgba(20,19,16,.2); padding-bottom: 6px;">House</div>
+              <div style="font-family: Newsreader, serif; font-size: 19px; padding-top: 7px;">Maison Oda</div>
+              <div style="display: flex; gap: 6px; padding-top: 8px;">
+                <span style="font-family: Newsreader, serif; font-style: italic; font-size: 12px; border: 1px solid rgba(20,19,16,.28); border-radius: 999px; padding: 2px 9px;">sculptural</span>
+                <span style="font-family: Newsreader, serif; font-style: italic; font-size: 12px; border: 1px solid rgba(20,19,16,.28); border-radius: 999px; padding: 2px 9px;">tokyo</span>
+              </div>
+            </div>
+
+            <div data-node="collar" data-open="collar" onClick="{{ open }}" style="position: absolute; left: 590px; top: 280px; width: 226px; cursor: grab; background: #fff; border: 1px solid #141310; padding: 11px 13px 13px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <span data-pinmark style="display: none; position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; background: #8f4331;"></span>
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b; border-bottom: 1px solid rgba(20,19,16,.2); padding-bottom: 6px;">Piece</div>
+              <div style="font-family: Newsreader, serif; font-size: 19px; padding: 7px 0 9px;">Sculpted poplin collar</div>
+              <div style="display: grid; place-items: center; aspect-ratio: 4/3; background: repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px); border: 1px solid rgba(20,19,16,.12);"><span style="font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: .14em; color: #8b857a;">PIECE SHOT</span></div>
+              <div style="display: flex; gap: 6px; padding-top: 9px;">
+                <span style="font-family: Newsreader, serif; font-style: italic; font-size: 12px; border: 1px solid rgba(20,19,16,.28); border-radius: 999px; padding: 2px 9px;">collar</span>
+                <span style="font-family: Newsreader, serif; font-style: italic; font-size: 12px; border: 1px solid rgba(20,19,16,.28); border-radius: 999px; padding: 2px 9px;">poplin</span>
+              </div>
+            </div>
+
+            <div data-node="runway" data-open="runway" onClick="{{ open }}" style="position: absolute; left: 900px; top: 110px; width: 176px; cursor: grab; background: #fff; border: 1px solid #141310; padding: 11px 13px 13px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <span data-pinmark style="display: none; position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; background: #8f4331;"></span>
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b; border-bottom: 1px solid rgba(20,19,16,.2); padding-bottom: 6px;">Clipping</div>
+              <div style="font-family: Newsreader, serif; font-size: 18px; padding: 7px 0 9px;">Look 22, autumn</div>
+              <div style="display: grid; place-items: center; aspect-ratio: 3/4; background: repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px); border: 1px solid rgba(20,19,16,.12);"><span style="font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: .14em; color: #8b857a;">RUNWAY</span></div>
+            </div>
+
+            <div data-node="collartheory" data-open="collartheory" onClick="{{ open }}" style="position: absolute; left: 1170px; top: 110px; width: 212px; cursor: grab; background: #fff; border: 1px solid #141310; padding: 12px 13px 14px; background-image: radial-gradient(rgba(20,19,16,.16) 1px, transparent 1px); background-size: 16px 16px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b;">Board &middot; open thread</div>
+              <div style="font-family: Newsreader, serif; font-size: 21px; padding-top: 4px;">The collar theory</div>
+              <div style="display: flex; gap: 6px; padding-top: 10px;">
+                <span style="flex: 1; aspect-ratio: 3/4; background: repeating-linear-gradient(45deg, #efece5 0 7px, #f7f5f0 7px 14px); border: 1px solid rgba(20,19,16,.12);"></span>
+                <span style="flex: 1; aspect-ratio: 3/4; background: repeating-linear-gradient(45deg, #efece5 0 7px, #f7f5f0 7px 14px); border: 1px solid rgba(20,19,16,.12);"></span>
+                <span style="flex: 1; aspect-ratio: 3/4; background: #e7e2d6; border: 1px solid rgba(20,19,16,.12);"></span>
+              </div>
+              <div style="font-family: Newsreader, serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #7d776b; padding-top: 8px;"><span data-board-count="collartheory">14</span> things</div>
+            </div>
+
+            <div data-node="stiff" data-open="stiff" onClick="{{ open }}" style="position: absolute; left: 380px; top: 520px; width: 194px; cursor: grab; background: #141310; color: #fbfaf8; border: 1px solid #141310; outline: 1px solid #141310; outline-offset: 4px; padding: 11px 13px 13px; user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: rgba(251,250,248,.62); border-bottom: 1px solid rgba(251,250,248,.28); padding-bottom: 6px;">Pattern &middot; derived</div>
+              <div style="font-family: Newsreader, serif; font-size: 20px; padding-top: 7px;">Stiff collars</div>
+              <div style="font-family: Newsreader, serif; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: rgba(251,250,248,.62); padding-top: 5px;">9 things</div>
+            </div>
+
+            <div data-node="note" data-open="note" onClick="{{ open }}" style="position: absolute; left: 130px; top: 660px; width: 214px; cursor: grab; background: #f2e6c9; border: 1px solid #141310; padding: 12px 13px 14px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <span data-pinmark style="display: none; position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; background: #8f4331;"></span>
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #6d5f3a;">Note &middot; Jul 21</div>
+              <p style="font-family: Caveat, cursive; font-size: 22px; line-height: 1.28; margin: 5px 0 0; color: #221d10;">Not the shirt. The collar. Ask the tailor about the grey one.</p>
+            </div>
+
+            <div data-node="fleuve" data-open="fleuve" data-suggest="1" onClick="{{ open }}" style="position: absolute; left: 840px; top: 430px; width: 190px; cursor: grab; background: #fbfaf8; border: 1px dashed rgba(20,19,16,.5); padding: 11px 13px 13px; user-select: none; opacity: .72; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1), opacity .4s ease;">
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b; border-bottom: 1px dashed rgba(20,19,16,.3); padding-bottom: 6px;">House &middot; <span data-suggest-label="fleuve">suggested</span></div>
+              <div style="font-family: Newsreader, serif; font-size: 19px; padding-top: 7px;">Atelier Fleuve</div>
+              <div style="font-family: Newsreader, serif; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #7d776b; padding-top: 5px;">2 shared tags</div>
+            </div>
+
+            <div data-node="tsuki" data-open="tsuki" data-suggest="1" onClick="{{ open }}" style="position: absolute; left: 1130px; top: 420px; width: 190px; cursor: grab; background: #fbfaf8; border: 1px dashed rgba(20,19,16,.5); padding: 11px 13px 13px; user-select: none; opacity: .72; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1), opacity .4s ease;">
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b; border-bottom: 1px dashed rgba(20,19,16,.3); padding-bottom: 6px;">House &middot; <span data-suggest-label="tsuki">suggested</span></div>
+              <div style="font-family: Newsreader, serif; font-size: 19px; padding-top: 7px;">Tsuki Atelier</div>
+              <div style="font-family: Newsreader, serif; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #7d776b; padding-top: 5px;">3 shared tags</div>
+            </div>
+
+            <div data-node="tokyo" data-open="tokyo" onClick="{{ open }}" style="position: absolute; left: 700px; top: 640px; width: 212px; cursor: grab; background: #fff; border: 1px solid #141310; padding: 12px 13px 14px; background-image: radial-gradient(rgba(20,19,16,.16) 1px, transparent 1px); background-size: 16px 16px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b;">Board</div>
+              <div style="font-family: Newsreader, serif; font-size: 21px; padding-top: 4px;">Tokyo, quietly</div>
+              <div style="display: flex; gap: 6px; padding-top: 10px;">
+                <span style="flex: 1; aspect-ratio: 3/4; background: repeating-linear-gradient(45deg, #efece5 0 7px, #f7f5f0 7px 14px); border: 1px solid rgba(20,19,16,.12);"></span>
+                <span style="flex: 1; aspect-ratio: 3/4; background: repeating-linear-gradient(45deg, #efece5 0 7px, #f7f5f0 7px 14px); border: 1px solid rgba(20,19,16,.12);"></span>
+                <span style="flex: 1; aspect-ratio: 3/4; background: #e3e6ef; border: 1px solid rgba(20,19,16,.12);"></span>
+              </div>
+              <div style="font-family: Newsreader, serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #7d776b; padding-top: 8px;"><span data-board-count="tokyo">31</span> things</div>
+            </div>
+
+            <div data-node="bias" data-open="bias" onClick="{{ open }}" style="position: absolute; left: 1060px; top: 740px; width: 196px; cursor: grab; background: #fff; border: 1px solid #141310; padding: 11px 13px 13px; box-shadow: 3px 3px 0 rgba(20,19,16,.1); user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <span data-pinmark style="display: none; position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; background: #8f4331;"></span>
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #7d776b; border-bottom: 1px solid rgba(20,19,16,.2); padding-bottom: 6px;">Piece</div>
+              <div style="font-family: Newsreader, serif; font-size: 18px; padding: 7px 0 9px;">Bias slip, Atelier Fleuve</div>
+              <div style="display: grid; place-items: center; aspect-ratio: 4/3; background: repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px); border: 1px solid rgba(20,19,16,.12);"><span style="font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: .14em; color: #8b857a;">PIECE SHOT</span></div>
+            </div>
+
+            <div data-node="undyed" data-open="undyed" onClick="{{ open }}" style="position: absolute; left: 480px; top: 810px; width: 190px; cursor: grab; background: #141310; color: #fbfaf8; border: 1px solid #141310; outline: 1px solid #141310; outline-offset: 4px; padding: 11px 13px 13px; user-select: none; transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1);">
+              <div style="font-family: Newsreader, serif; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: rgba(251,250,248,.62); border-bottom: 1px solid rgba(251,250,248,.28); padding-bottom: 6px;">Pattern &middot; derived</div>
+              <div style="font-family: Newsreader, serif; font-size: 20px; padding-top: 7px;">Unbleached cotton</div>
+              <div style="font-family: Newsreader, serif; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: rgba(251,250,248,.62); padding-top: 5px;">5 things</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ── list view ── -->
+      <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; min-height: 0; overflow: auto; padding: 24px 22px 40px; animation: fadeUp .3s ease both;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 30px 20px;">
+            <sc-for list="{{ mList }}" as="n" hint-placeholder-count="11">
+              <div data-open="{{ n.id }}" onClick="{{ open }}" style="cursor: pointer; display: flex; flex-direction: column; gap: 8px;">
+                <div style="position: relative; aspect-ratio: 3/4; background: repeating-linear-gradient(45deg, #efece5 0 9px, #f7f5f0 9px 18px); border: 1px solid rgba(20,19,16,.16); display: flex; align-items: flex-end; padding: 10px;">
+                  <span style="font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: .12em; color: #8b857a;">{{ n.kindShort }}</span>
+                  <span style="position: absolute; top: 8px; right: 8px; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8f4331;">{{ n.badge }}</span>
+                </div>
+                <div style="font-family: Newsreader, serif; font-size: 17px; line-height: 1.2;">{{ n.title }}</div>
+                <div style="font-family: Newsreader, serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #7d776b;">{{ n.tagLine }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ── detail pop-out ── -->
+      <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ false }}">
+        <aside ref="{{ panel }}" onClick="{{ stop }}" style="position: absolute; top: 0; right: 0; bottom: 0; z-index: 40; width: min(430px, 40%); min-width: 260px; overflow: auto; background: #fbfaf8; border-left: 1px solid #141310; box-shadow: -18px 0 40px -30px rgba(20,19,16,.9); animation: slideIn .4s cubic-bezier(.2,.8,.2,1) both;">
+          <div style="position: sticky; top: 0; z-index: 2; background: #fbfaf8; display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 13px 20px; border-bottom: 1px solid #141310; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase;">
+            <span>{{ mKind }}</span>
+            <button onClick="{{ close }}" style="cursor: pointer; background: none; border: none; font-family: Newsreader, serif; font-size: 15px; letter-spacing: .18em; text-transform: uppercase;" style-hover="color: #8f4331">Close &times;</button>
+          </div>
+
+          <div style="border-bottom: 1px solid rgba(20,19,16,.28); padding: 20px;">
+            <div style="display: grid; place-items: center; aspect-ratio: 4/5; background: repeating-linear-gradient(45deg, #efece5 0 9px, #f7f5f0 9px 18px); border: 1px solid rgba(20,19,16,.16);"><span style="font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .16em; color: #8b857a;">IMAGE</span></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; padding-top: 14px;">
+              <sc-for list="{{ mTags }}" as="t" hint-placeholder-count="3">
+                <span style="font-family: Newsreader, serif; font-style: italic; font-size: 13px; border: 1px solid rgba(20,19,16,.3); border-radius: 999px; padding: 3px 10px;">{{ t }}</span>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding: 20px 20px 34px; min-width: 0;">
+            <h2 style="font-family: Newsreader, serif; font-weight: 400; font-size: 33px; line-height: 1.06; margin: 0;">{{ mTitle }}</h2>
+            <p style="font-family: Newsreader, serif; font-weight: 300; font-size: 17px; line-height: 1.55; color: #35322a; margin: 12px 0 0; max-width: 42ch; text-wrap: pretty;">{{ mDesc }}</p>
+
+            <sc-if value="{{ mIsHouse }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleFollow }}" style="width: 100%; cursor: pointer; margin-top: 18px; background: {{ followBg }}; color: {{ followColor }}; border: 1px solid #141310; padding: 11px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;">{{ followLabel }}</button>
+            </sc-if>
+
+            <div style="border-top: 1px solid #141310; margin-top: 20px;">
+              <sc-for list="{{ mMeta }}" as="row" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: 104px 1fr; border-bottom: 1px solid rgba(20,19,16,.18);">
+                  <div style="padding: 9px 12px 9px 0; font-family: Newsreader, serif; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7d776b;">{{ row.k }}</div>
+                  <div style="padding: 9px 0; font-family: Newsreader, serif; font-size: 16px;">{{ row.v }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="font-family: Newsreader, serif; font-style: italic; font-size: 21px; padding: 22px 0 4px;">Connected to</div>
+            <sc-for list="{{ mLinks }}" as="l" hint-placeholder-count="3">
+              <button data-open="{{ l.id }}" onClick="{{ open }}" style="width: 100%; cursor: pointer; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(20,19,16,.18); padding: 11px 0; display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: baseline; transition: padding-left .3s ease;" style-hover="padding-left: 8px">
+                <span style="font-family: Newsreader, serif; font-size: 17px;">{{ l.title }}</span>
+                <span style="font-family: Newsreader, serif; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #7d776b;">{{ l.kind }}</span>
+                <span style="font-family: Newsreader, serif; font-size: 14px; color: #8f4331;">&#8599;</span>
+              </button>
+            </sc-for>
+
+            <sc-if value="{{ mCanPin }}" hint-placeholder-val="{{ true }}">
+              <div style="font-family: Newsreader, serif; font-style: italic; font-size: 21px; padding: 26px 0 4px;">Pin to a board</div>
+              <sc-for list="{{ mBoards }}" as="b" hint-placeholder-count="2">
+                <button data-board="{{ b.id }}" onClick="{{ togglePin }}" style="width: 100%; cursor: pointer; text-align: left; background: {{ b.bg }}; color: {{ b.color }}; border: 1px solid #141310; padding: 11px 13px; margin-top: 8px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: baseline; font-family: Newsreader, serif;">
+                  <span style="font-size: 17px;">{{ b.name }}</span>
+                  <span style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase;">{{ b.action }}</span>
+                </button>
+              </sc-for>
+              <div style="font-family: Caveat, cursive; font-size: 19px; color: #8f4331; padding-top: 10px;">pinning draws the line on the desk</div>
+            </sc-if>
+          </div>
+        </aside>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- ── capture bar ── -->
+  <footer style="display: grid; grid-template-columns: 268px 1fr auto; align-items: center; border-top: 1px solid #141310;">
+    <div style="padding: 14px 18px; border-right: 1px solid #141310; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #7d776b;">Capture<br>text / image / url</div>
+    <input placeholder="Clip a piece, a house, a thought&hellip;" style="border: none; background: none; padding: 18px 22px; font-family: Newsreader, serif; font-size: 20px; color: #141310; outline: none; width: 100%;">
+    <button style="cursor: pointer; margin: 0 18px; background: #141310; color: #fbfaf8; border: none; padding: 11px 18px; font-family: Newsreader, serif; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;">Connect node</button>
+  </footer>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showSuggested&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Desk&quot;},&quot;deskTexture&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;grid&quot;,&quot;dots&quot;,&quot;plain&quot;],&quot;default&quot;:&quot;grid&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Desk&quot;}}">
+const NODES = {
+  collar: { title: 'Sculpted poplin collar', kind: 'Piece · node', short: 'PIECE', day: 1, desc: 'Stands on its own without help. The reason half the things you saved this year have a neck like this.', tags: ['collar', 'poplin', 'sculptural', 'stiff'], meta: [{ k: 'House', v: 'Maison Oda' }, { k: 'Clipped', v: 'March 04 — resurfaced today' }, { k: 'Occasion', v: 'Date Night' }], links: ['maisonoda', 'stiff', 'tokyo', 'runway'] },
+  maisonoda: { title: 'Maison Oda', kind: 'House · node', short: 'HOUSE', day: 1, desc: 'Tokyo, small production, one shape refined a season at a time. You have followed them since the first collar.', tags: ['sculptural', 'japanese', 'minimalist'], meta: [{ k: 'City', v: 'Tokyo' }, { k: 'Tier', v: 'Contemporary' }, { k: 'Following', v: 'Since Nov 2024' }], links: ['collar', 'tokyo', 'tsuki'] },
+  stiff: { title: 'Stiff collars', kind: 'Pattern · derived from you', short: 'PATTERN', day: 5, desc: 'Nishi noticed this one, you did not: nine saves across four houses and two decades, all with a neck that holds its shape.', tags: ['collar', 'stiff', 'structure'], meta: [{ k: 'First seen', v: 'Feb 2025' }, { k: 'Weight', v: '9 saves · strongest pattern' }, { k: 'Feeds', v: 'The collar theory' }], links: ['collar', 'runway', 'tsuki', 'note'] },
+  undyed: { title: 'Unbleached cotton', kind: 'Pattern · derived from you', short: 'PATTERN', day: 5, desc: 'Five saves, all raw or undyed. Anything bleached has started to read loud to you.', tags: ['undyed', 'raw', 'texture'], meta: [{ k: 'First seen', v: 'Apr 2026' }, { k: 'Weight', v: '5 saves · growing' }, { k: 'Adjacent to', v: 'Unbleached linen, greige' }], links: ['bias', 'tsuki', 'fleuve'] },
+  tsuki: { title: 'Tsuki Atelier', kind: 'House · suggested', short: 'HOUSE', day: 3, desc: 'Adjacent to Maison Oda on three tags. You have not followed them yet — Nishi keeps putting them in front of you.', tags: ['japanese', 'sculptural', 'undyed'], meta: [{ k: 'City', v: 'Kyoto' }, { k: 'Tier', v: 'Contemporary' }, { k: 'Why', v: '3 shared tags with Maison Oda' }], links: ['stiff', 'tokyo', 'undyed'] },
+  fleuve: { title: 'Atelier Fleuve', kind: 'House · suggested', short: 'HOUSE', day: 3, desc: 'Makes the bias slip you clipped in June. Nishi thinks the undyed pattern runs through their whole catalogue.', tags: ['bias', 'undyed', 'french'], meta: [{ k: 'City', v: 'Paris' }, { k: 'Tier', v: 'Contemporary' }, { k: 'Why', v: '2 shared tags · one piece saved' }], links: ['bias', 'undyed'] },
+  tokyo: { title: 'Tokyo, quietly', kind: 'Board · yours', short: 'BOARD', day: 5, desc: 'Thirty-one things that all somehow live in the same weather. Started as a packing list, became a thesis.', tags: ['japanese', 'minimalist', 'undyed'], meta: [{ k: 'Started', v: 'Jan 2025' }, { k: 'Contents', v: '31 things · 12 houses' }, { k: 'Last added', v: 'Yesterday' }], links: ['collar', 'maisonoda', 'tsuki', 'bias'] },
+  collartheory: { title: 'The collar theory', kind: 'Board · open thread', short: 'BOARD', day: 5, desc: 'The thread you keep coming back to. Fourteen things and one unanswered question about what makes a collar stand up.', tags: ['collar', 'stiff', 'structure'], meta: [{ k: 'Started', v: 'Feb 2025' }, { k: 'Contents', v: '14 things' }, { k: 'Status', v: 'Open · you added yesterday' }], links: ['collar', 'stiff', 'runway'] },
+  bias: { title: 'Bias slip, Atelier Fleuve', kind: 'Piece · node', short: 'PIECE', day: 2, desc: 'The other half of your eye. Nothing structural about it — which is why the link to the collar is interesting.', tags: ['bias', 'slip', 'undyed'], meta: [{ k: 'House', v: 'Atelier Fleuve' }, { k: 'Clipped', v: 'June 29' }, { k: 'Occasion', v: 'Events' }], links: ['tokyo', 'undyed', 'fleuve', 'runway'] },
+  runway: { title: 'Look 22, autumn', kind: 'Clipping · node', short: 'CLIPPING', day: 2, desc: 'Same neckline three seasons on. You linked this to the bias slip yourself — the only link here Nishi did not suggest.', tags: ['collar', 'runway', 'archive'], meta: [{ k: 'Source', v: 'Runway, autumn 2024' }, { k: 'Clipped', v: 'Jun 29 · from Instagram' }, { k: 'Your link', v: 'Bias slip — “forty years apart”' }], links: ['collar', 'stiff', 'bias'] },
+  note: { title: 'Ask the tailor', kind: 'Note · Jul 21', short: 'NOTE', day: 4, desc: 'Not the shirt. The collar. Ask the tailor if he can copy this on the grey one before October.', tags: ['collar', 'to do'], meta: [{ k: 'Written', v: 'Jul 21, 14:02' }, { k: 'Attached to', v: 'Sculpted poplin collar' }, { k: 'Status', v: 'Open' }], links: ['collar', 'stiff'] }
+};
+const ORDER = ['collar', 'bias', 'maisonoda', 'tsuki', 'fleuve', 'stiff', 'undyed', 'collartheory', 'tokyo', 'runway', 'note'];
+const BOARDS = [{ id: 'collartheory', name: 'The collar theory', base: 14 }, { id: 'tokyo', name: 'Tokyo, quietly', base: 31 }];
+const DEFAULTS = {
+  maisonoda: [250, 150], collar: [590, 280], runway: [900, 110], collartheory: [1170, 110],
+  stiff: [380, 520], note: [130, 660], fleuve: [840, 430], tsuki: [1130, 420],
+  tokyo: [700, 640], bias: [1060, 740], undyed: [480, 810]
+};
+const DAY_X = { 1: 90, 2: 430, 3: 770, 4: 1110, 5: 90 };
+const KEY = 'nishi.desk.v1';
+
+class Component extends DCLogic {
+  state = { open: null, view: 'graph', lens: 'free', pins: {}, follows: { maisonoda: 1 } };
+
+  componentDidMount() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (saved) {
+        this.pos = saved.pos || {};
+        this.setState({ pins: saved.pins || {}, follows: saved.follows || { maisonoda: 1 }, lens: saved.lens || 'free' },
+          () => { this.applyPositions(); this.refresh(); });
+      }
+    } catch (e) { /* first run */ }
+    this.pos = this.pos || {};
+    this.onResize = () => this.fit();
+    window.addEventListener('resize', this.onResize);
+    this.onKey = (e) => { if (e.key === 'Escape') this.setState({ open: null }, () => this.mark(null)); };
+    window.addEventListener('keydown', this.onKey);
+    setTimeout(() => { this.applyPositions(); this.refresh(); }, 0);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('keydown', this.onKey);
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+  }
+
+  save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ pos: this.pos, pins: this.state.pins, follows: this.state.follows, lens: this.state.lens }));
+    } catch (e) { /* private mode */ }
+  }
+
+  /* ── desk mechanics ── */
+
+  wire() {
+    const stage = this.stageEl;
+    if (!stage) return;
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+    let mode = null, sx = 0, sy = 0, ox = 0, oy = 0, el = null, moved = 0;
+
+    stage.onmousedown = (e) => {
+      const node = e.target.closest('[data-node]');
+      sx = e.clientX; sy = e.clientY; moved = 0;
+      if (node) {
+        mode = 'node'; el = node;
+        ox = parseFloat(node.style.left); oy = parseFloat(node.style.top);
+        node.style.transition = 'none';
+        node.style.cursor = 'grabbing';
+        node.style.zIndex = (this.z = (this.z || 20) + 1);
+      } else {
+        mode = 'pan'; ox = this.x; oy = this.y; stage.style.cursor = 'grabbing';
+      }
+    };
+
+    this.onMove = (e) => {
+      if (!mode) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      moved = Math.max(moved, Math.abs(dx) + Math.abs(dy));
+      if (mode === 'node') {
+        el.style.left = (ox + dx / this.s) + 'px';
+        el.style.top = (oy + dy / this.s) + 'px';
+        this.edges();
+      } else {
+        this.x = ox + dx; this.y = oy + dy; this.apply();
+      }
+    };
+
+    this.onUp = () => {
+      if (mode === 'node' && el) {
+        el.style.cursor = 'grab';
+        el.style.transition = 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)';
+        this.dragged = moved > 4;
+        if (this.dragged) {
+          this.pos[el.dataset.node] = [parseFloat(el.style.left), parseFloat(el.style.top)];
+          if (this.state.lens !== 'free') this.setState({ lens: 'free' }, () => this.refresh());
+          this.save();
+        }
+      }
+      if (mode === 'pan') stage.style.cursor = 'grab';
+      mode = null; el = null;
+    };
+
+    stage.onwheel = (e) => {
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      const mx = e.clientX - r.left, my = e.clientY - r.top;
+      const k = Math.min(1.5, Math.max(0.3, this.s * (e.deltaY > 0 ? 0.92 : 1.08)));
+      this.x = mx - (mx - this.x) * (k / this.s);
+      this.y = my - (my - this.y) * (k / this.s);
+      this.s = k; this.apply();
+    };
+
+    window.addEventListener('mousemove', this.onMove);
+    window.addEventListener('mouseup', this.onUp);
+  }
+
+  fit() {
+    if (!this.stageEl) return;
+    const w = this.stageEl.clientWidth, h = this.stageEl.clientHeight;
+    this.s = Math.max(0.5, Math.min((w - 50) / 1520, (h - 50) / 980, 1));
+    this.x = (w - 1520 * this.s) / 2;
+    this.y = (h - 980 * this.s) / 2;
+    this.apply();
+    this.edges();
+  }
+
+  zoom(f) {
+    if (!this.stageEl) return;
+    const w = this.stageEl.clientWidth, h = this.stageEl.clientHeight;
+    const k = Math.min(1.5, Math.max(0.3, this.s * f));
+    this.x = w / 2 - (w / 2 - this.x) * (k / this.s);
+    this.y = h / 2 - (h / 2 - this.y) * (k / this.s);
+    this.s = k; this.apply();
+  }
+
+  apply() {
+    if (this.panEl) this.panEl.style.transform = `translate(${this.x}px, ${this.y}px) scale(${this.s})`;
+  }
+
+  node(id) { return this.panEl && this.panEl.querySelector(`[data-node="${id}"]`); }
+
+  edges() {
+    if (!this.svgEl || !this.panEl) return;
+    this.svgEl.querySelectorAll('line[data-from]').forEach(l => {
+      const a = this.node(l.dataset.from), b = this.node(l.dataset.to);
+      if (!a || !b) return;
+      l.setAttribute('x1', a.offsetLeft + a.offsetWidth / 2);
+      l.setAttribute('y1', a.offsetTop + a.offsetHeight / 2);
+      l.setAttribute('x2', b.offsetLeft + b.offsetWidth / 2);
+      l.setAttribute('y2', b.offsetTop + b.offsetHeight / 2);
+    });
+  }
+
+  /* ── layouts ── */
+
+  applyPositions() {
+    if (!this.panEl) return;
+    const lens = this.state.lens;
+    if (lens === 'diary') {
+      const seen = {};
+      ORDER.forEach(id => {
+        const el = this.node(id); if (!el) return;
+        const d = NODES[id].day;
+        const i = (seen[d] = (seen[d] || 0) + 1) - 1;
+        if (d === 5) { el.style.left = (90 + i * 300) + 'px'; el.style.top = '740px'; }
+        else { el.style.left = DAY_X[d] + 'px'; el.style.top = (86 + i * 230) + 'px'; }
+      });
+    } else {
+      ORDER.forEach(id => {
+        const el = this.node(id); if (!el) return;
+        const p = this.pos[id] || DEFAULTS[id];
+        el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px';
+      });
+    }
+    this.panEl.querySelectorAll('[data-day]').forEach(el => { el.style.display = lens === 'diary' ? 'block' : 'none'; });
+    let t = 0;
+    const tick = () => { this.edges(); if ((t += 16) < 700) requestAnimationFrame(tick); };
+    tick();
+  }
+
+  /* ── pins, follows, marks ── */
+
+  refresh() {
+    const { pins, follows } = this.state;
+    if (this.statPinsEl) this.statPinsEl.textContent = Object.keys(pins).filter(k => (pins[k] || []).length).length;
+    if (this.statFollowsEl) this.statFollowsEl.textContent = Object.keys(follows).length;
+
+    if (this.stageEl) {
+      const tex = this.props.deskTexture || 'grid';
+      this.stageEl.style.backgroundImage = tex === 'grid'
+        ? 'linear-gradient(rgba(20,19,16,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(20,19,16,.07) 1px, transparent 1px)'
+        : (tex === 'dots' ? 'radial-gradient(rgba(20,19,16,.16) 1px, transparent 1px)' : 'none');
+      this.stageEl.style.backgroundSize = tex === 'dots' ? '26px 26px' : '34px 34px';
+    }
+    const showGhosts = this.props.showSuggested !== false;
+
+    if (this.panEl) {
+      this.panEl.querySelectorAll('[data-node]').forEach(el => {
+        const id = el.dataset.node;
+        if (el.dataset.suggest) el.style.display = (showGhosts || follows[id]) ? 'block' : 'none';
+        const mark = el.querySelector('[data-pinmark]');
+        if (mark) mark.style.display = (pins[id] || []).length ? 'block' : 'none';
+        if (el.dataset.suggest) {
+          const on = !!follows[id];
+          el.style.borderStyle = on ? 'solid' : 'dashed';
+          el.style.opacity = on ? '1' : '.72';
+          el.style.background = on ? '#fff' : '#fbfaf8';
+          el.style.boxShadow = on ? '3px 3px 0 rgba(20,19,16,.1)' : 'none';
+        }
+      });
+      this.panEl.querySelectorAll('[data-suggest-label]').forEach(el => {
+        el.textContent = follows[el.dataset.suggestLabel] ? 'following' : 'suggested';
+      });
+    }
+    if (this.root) {
+      this.root.querySelectorAll('[data-follow-mark]').forEach(el => {
+        const on = !!follows[el.dataset.followMark];
+        el.textContent = on ? 'following' : 'suggested';
+        el.style.color = on ? '#8f4331' : '#a09a8d';
+      });
+      BOARDS.forEach(b => {
+        const n = b.base + Object.keys(pins).filter(k => (pins[k] || []).includes(b.id)).length;
+        this.root.querySelectorAll(`[data-board-count="${b.id}"]`).forEach(el => { el.textContent = n; });
+      });
+    }
+
+    if (this.pinEdgesEl) {
+      this.pinEdgesEl.innerHTML = '';
+      Object.keys(pins).forEach(id => (pins[id] || []).forEach(b => {
+        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        l.dataset.from = id; l.dataset.to = b;
+        this.pinEdgesEl.appendChild(l);
+      }));
+      this.edges();
+    }
+    if (this.lensFreeEl && this.lensDiaryEl) {
+      const diary = this.state.lens === 'diary';
+      this.lensFreeEl.style.background = diary ? 'none' : '#141310';
+      this.lensFreeEl.style.color = diary ? '#141310' : '#fbfaf8';
+      this.lensFreeEl.style.borderColor = diary ? 'rgba(20,19,16,.3)' : '#141310';
+      this.lensDiaryEl.style.background = diary ? '#141310' : 'none';
+      this.lensDiaryEl.style.color = diary ? '#fbfaf8' : '#141310';
+      this.lensDiaryEl.style.borderColor = diary ? '#141310' : 'rgba(20,19,16,.3)';
+      if (this.lensHintEl) this.lensHintEl.textContent = diary ? 'drag anything to go back to your own arrangement' : 'your arrangement is saved as you move';
+    }
+    if (this.tabGraphEl && this.tabListEl) {
+      const g = this.state.view === 'graph';
+      this.tabGraphEl.style.color = g ? '#141310' : '#7d776b';
+      this.tabListEl.style.color = g ? '#7d776b' : '#141310';
+    }
+  }
+
+  mark(id) {
+    if (!this.panEl) return;
+    this.panEl.querySelectorAll('[data-node]').forEach(el => {
+      const dark = el.dataset.node === 'stiff' || el.dataset.node === 'undyed';
+      el.style.outline = el.dataset.node === id ? '1px solid #8f4331' : (dark ? '1px solid #141310' : 'none');
+      el.style.outlineOffset = '4px';
+    });
+    if (!this.svgEl) return;
+    this.svgEl.querySelectorAll('line[data-from]').forEach(l => {
+      const on = !id || l.dataset.from === id || l.dataset.to === id;
+      l.style.strokeOpacity = on ? '1' : '.2';
+    });
+  }
+
+  focusNode(id) {
+    const el = this.node(id);
+    if (!el || !this.stageEl) return;
+    const h = this.stageEl.clientHeight;
+    const panelW = this.panelEl ? this.panelEl.offsetWidth : 0;
+    const avail = Math.max(240, this.stageEl.clientWidth - panelW);
+
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    this.panEl.querySelectorAll('[data-node]').forEach(n => {
+      if (n.style.display === 'none') return;
+      x0 = Math.min(x0, n.offsetLeft); y0 = Math.min(y0, n.offsetTop);
+      x1 = Math.max(x1, n.offsetLeft + n.offsetWidth); y1 = Math.max(y1, n.offsetTop + n.offsetHeight);
+    });
+    const pad = 26;
+    this.s = Math.max(0.5, Math.min((avail - pad * 2) / (x1 - x0), (h - pad * 2) / (y1 - y0), 1));
+
+    const cx = el.offsetLeft + el.offsetWidth / 2, cy = el.offsetTop + el.offsetHeight / 2;
+    const clamp = (want, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(want, lo), hi));
+    this.x = clamp(avail / 2 - cx * this.s, avail - pad - x1 * this.s, pad - x0 * this.s);
+    this.y = clamp(h / 2 - cy * this.s, h - pad - y1 * this.s, pad - y0 * this.s);
+    this.apply();
+  }
+
+  filterIndex(term) {
+    if (!this.indexEl) return;
+    const t = (term || '').trim().toLowerCase();
+    let hits = 0;
+    this.indexEl.querySelectorAll('[data-group]').forEach(g => {
+      let n = 0;
+      g.querySelectorAll('[data-name]').forEach(row => {
+        const on = !t || row.dataset.name.includes(t);
+        row.style.display = on ? 'grid' : 'none';
+        if (on) n++;
+      });
+      g.style.display = n ? 'block' : 'none';
+      hits += n;
+    });
+    if (this.noHitsEl) this.noHitsEl.style.display = hits ? 'none' : 'block';
+  }
+
+  /* ── render ── */
+
+  renderVals() {
+    const s = this.state;
+    const n = NODES[s.open] || null;
+    const pins = s.pins;
+    return {
+      root: (el) => { this.root = el; },
+      index: (el) => { this.indexEl = el; },
+      noHits: (el) => { this.noHitsEl = el; },
+      q: (el) => { this.qEl = el; },
+      statPins: (el) => { this.statPinsEl = el; },
+      statFollows: (el) => { this.statFollowsEl = el; },
+      tabGraph: (el) => { this.tabGraphEl = el; },
+      tabList: (el) => { this.tabListEl = el; },
+      lensFree: (el) => { this.lensFreeEl = el; },
+      lensDiary: (el) => { this.lensDiaryEl = el; },
+      lensHint: (el) => { this.lensHintEl = el; },
+      pinEdges: (el) => { this.pinEdgesEl = el; },
+      panel: (el) => { this.panelEl = el; },
+      stage: (el) => {
+        this.stageEl = el;
+        if (!el) return;
+        setTimeout(() => {
+          this.wire();
+          if (!this.fitted) { this.fit(); this.fitted = true; } else { this.apply(); this.edges(); }
+          this.applyPositions(); this.refresh();
+        }, 0);
+      },
+      pan: (el) => { this.panEl = el; },
+      svg: (el) => { this.svgEl = el; },
+
+      isGraph: s.view === 'graph',
+      isList: s.view === 'list',
+      isOpen: !!n,
+      mTitle: n ? n.title : '',
+      mKind: n ? n.kind : '',
+      mDesc: n ? n.desc : '',
+      mTags: n ? n.tags : [],
+      mMeta: n ? n.meta : [],
+      mLinks: n ? n.links.map(id => ({ id, title: NODES[id].title, kind: NODES[id].kind.split(' ·')[0] })) : [],
+      mIsHouse: !!n && n.kind.indexOf('House') === 0,
+      mCanPin: !!n && n.kind.indexOf('Board') !== 0,
+      followLabel: n ? (s.follows[s.open] ? 'Following ✓' : 'Follow this house') : '',
+      followBg: n && s.follows[s.open] ? '#141310' : 'none',
+      followColor: n && s.follows[s.open] ? '#fbfaf8' : '#141310',
+      mBoards: BOARDS.map(b => {
+        const on = (pins[s.open] || []).includes(b.id);
+        return { id: b.id, name: b.name, action: on ? 'pinned — unpin' : 'pin here', bg: on ? '#f2e6c9' : 'none', color: '#141310' };
+      }),
+      mList: ORDER.map(id => {
+        const d = NODES[id];
+        return {
+          id, title: d.title, kindShort: d.short, tagLine: d.tags.slice(0, 3).join(' · '),
+          badge: (pins[id] || []).length ? 'pinned' : (s.follows[id] ? 'following' : (d.kind.indexOf('suggested') > -1 ? 'suggested' : ''))
+        };
+      }),
+
+      open: (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (this.dragged) { this.dragged = false; return; }
+        const id = e.currentTarget.dataset.open;
+        if (!NODES[id]) return;
+        this.setState({ open: id }, () => { this.mark(id); setTimeout(() => this.focusNode(id), 20); });
+      },
+      focus: (e) => {
+        e.preventDefault();
+        const id = e.currentTarget.dataset.open;
+        if (!NODES[id]) return;
+        const go = () => { this.focusNode(id); this.mark(id); };
+        if (this.state.view !== 'graph') this.setState({ view: 'graph', open: id }, () => setTimeout(go, 60));
+        else this.setState({ open: id }, go);
+      },
+      close: (e) => { e.preventDefault(); this.setState({ open: null }, () => this.mark(null)); },
+      stop: (e) => { e.stopPropagation(); },
+      filter: (e) => { this.filterIndex(e.target.value); },
+      toGraph: (e) => { e.preventDefault(); this.setState({ view: 'graph' }, () => this.refresh()); },
+      toList: (e) => { e.preventDefault(); this.setState({ view: 'list' }, () => this.refresh()); },
+      setFree: (e) => { e.preventDefault(); this.setState({ lens: 'free' }, () => { this.applyPositions(); this.refresh(); this.save(); }); },
+      setDiary: (e) => { e.preventDefault(); this.setState({ lens: 'diary' }, () => { this.applyPositions(); this.refresh(); this.save(); }); },
+      togglePin: (e) => {
+        e.preventDefault();
+        const board = e.currentTarget.dataset.board, id = this.state.open;
+        const next = { ...this.state.pins };
+        const list = (next[id] || []).slice();
+        const i = list.indexOf(board);
+        if (i > -1) list.splice(i, 1); else list.push(board);
+        next[id] = list;
+        this.setState({ pins: next }, () => { this.refresh(); this.save(); });
+      },
+      toggleFollow: (e) => {
+        e.preventDefault();
+        const id = this.state.open;
+        const next = { ...this.state.follows };
+        if (next[id]) delete next[id]; else next[id] = 1;
+        this.setState({ follows: next }, () => { this.refresh(); this.save(); });
+      },
+      zoomIn: (e) => { e.preventDefault(); this.zoom(1.15); },
+      zoomOut: (e) => { e.preventDefault(); this.zoom(1 / 1.15); },
+      reset: (e) => { e.preventDefault(); this.fit(); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

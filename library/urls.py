@@ -13,4 +13,6 @@ urlpatterns = [
     path("connections/", views.connection_list),
     path("connections/<slug:platform>/", views.connection_update),
     path("taste/", views.taste),
+    path("capture/", views.capture),
+    path("clips/<uuid:clip_id>/", views.clip_detail),
 ]

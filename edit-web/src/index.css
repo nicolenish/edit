@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&family=Caveat:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&family=Caveat:wght@400;500;600&family=Reenie+Beanie&family=Newsreader:ital,opsz,wght@0,6..72,200..600;1,6..72,200..500&display=swap');
 
 :root {
   --bg: #ffffff;
@@ -9,12 +9,17 @@
   --placeholder: #efede8;
   --serif: 'Cormorant Garamond', Georgia, serif;
   --sans: 'Jost', system-ui, sans-serif;
-  --hand: 'Caveat', cursive;
+  --hand: 'Reenie Beanie', cursive;
 }
 
 @keyframes efade {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(34px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 * { box-sizing: border-box; }

@@ -10,4 +10,12 @@ urlpatterns = [
     path("products/", views.product_list),
     path("feed/", views.feed),
     path("discover/", views.discover),
+    path("graph/", views.graph),
+    path("graph/list/", views.graph_list),
+    path("graph/positions/", views.graph_positions),
+    path("graph/board/<slug:slug>/items/", views.graph_board_items),
+    path("graph/board/<slug:slug>/positions/", views.graph_board_positions),
+    path("graph/board/<slug:slug>/", views.graph_board),
+    path("graph/house/<slug:key>/study/", views.graph_house_study),
+    path("graph/node/<path:node_id>/", views.graph_node),
 ]

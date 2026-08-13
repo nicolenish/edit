@@ -1,0 +1,236 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nishi 西 — node view</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Jost:wght@300;400;500&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#efe7d8; --paper-2:#e7dcc7; --ink:#241d13; --muted:#8a7f6b;
+    --terra:#a2452f; --tape:rgba(214,196,158,.55);
+    --coral:#d97b6c; --sage:#9bab82; --plum:#7d5f7f; --peri:#8aa6c8; --butter:#e2b652; --tomato:#cf5b45;
+    --serif:"Fraunces",Georgia,serif; --sans:"Jost",system-ui,sans-serif; --hand:"Caveat",cursive;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+    background-image:radial-gradient(rgba(120,105,80,.16) 1.1px, transparent 1.1px);
+    background-size:22px 22px; -webkit-font-smoothing:antialiased; overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+
+  header{display:flex;justify-content:space-between;align-items:flex-start;padding:26px 40px 0}
+  .word{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:.01em}
+  .word .jp{font-size:.62em;color:var(--terra);margin-left:.15em}
+  .tag-line{font-family:var(--hand);font-size:23px;color:var(--terra);transform:rotate(-2deg);margin-top:-2px;display:inline-block}
+  .stamp{border:2px solid var(--terra);color:var(--terra);border-radius:8px;padding:6px 12px;
+    font-family:var(--sans);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    transform:rotate(4deg);opacity:.8;text-align:center;line-height:1.5}
+  .stamp b{display:block;font-family:var(--serif);font-size:15px;letter-spacing:.02em}
+
+  .stage{position:relative;width:1280px;max-width:100%;height:940px;margin:6px auto 0}
+  .wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  .node{position:absolute;z-index:2}
+
+  /* tape */
+  .tape{position:absolute;width:78px;height:26px;background:var(--tape);
+    box-shadow:0 1px 2px rgba(0,0,0,.08);z-index:5}
+  .tape.tl{top:-12px;left:16px;transform:rotate(-24deg)}
+  .tape.tr{top:-12px;right:16px;transform:rotate(22deg)}
+
+  /* central piece */
+  .piece{left:452px;top:250px;width:322px;transform:rotate(-2.4deg);transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+  .piece:hover{transform:rotate(-1deg) translateY(-4px)}
+  .piece .card{position:relative;background:#fff;padding:14px 14px 18px;
+    box-shadow:0 18px 34px rgba(60,45,25,.18)}
+  .piece .ph{position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--paper-2)}
+  .piece .ph img{width:100%;height:100%;object-fit:cover;object-position:center 22%}
+  .occ{position:absolute;left:10px;top:10px;background:var(--coral);color:#fff;font-size:10.5px;
+    letter-spacing:.14em;text-transform:uppercase;padding:5px 10px;font-weight:500;transform:rotate(-2deg)}
+  .heart{position:absolute;right:-16px;top:-16px;width:52px;height:52px;border-radius:50%;
+    background:var(--tomato);border:none;cursor:pointer;color:#fff;font-size:22px;line-height:52px;
+    box-shadow:0 6px 14px rgba(0,0,0,.2);transition:transform .25s cubic-bezier(.2,1.6,.4,1);z-index:6}
+  .heart:hover{transform:scale(1.12) rotate(-8deg)}
+  .heart.pop{animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.35) rotate(10deg)}100%{transform:scale(1)}}
+  .piece .meta{padding:12px 4px 0}
+  .piece .name{font-family:var(--serif);font-weight:400;font-size:25px;line-height:1.05}
+  .piece .name em{font-style:italic}
+  .piece .sub{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;font-size:13.5px;color:#4a4032}
+  .piece .sub .brand{text-transform:uppercase;letter-spacing:.1em;font-size:11.5px}
+  .clipnote{font-family:var(--hand);font-size:20px;color:var(--muted);transform:rotate(-2deg);margin-top:8px}
+
+  /* generic satellite card */
+  .mini{background:#fffdf8;padding:14px 16px;box-shadow:0 10px 22px rgba(60,45,25,.14);position:relative}
+  .kicker{font-family:var(--hand);font-size:22px;color:var(--terra);position:absolute;white-space:nowrap}
+
+  /* house node */
+  .house{left:918px;top:150px;width:270px;transform:rotate(1.6deg);transition:.4s}
+  .house:hover{transform:rotate(.4deg) translateY(-3px)}
+  .house h3{font-family:var(--serif);font-weight:400;font-size:27px;margin:0}
+  .house .loc{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 0 8px}
+  .house p{font-size:13px;line-height:1.5;color:#4a4032;margin:0}
+
+  /* tags node */
+  .tags{left:70px;top:300px;width:250px}
+  .chips{display:flex;flex-wrap:wrap;gap:9px}
+  .chip{border:1.5px solid var(--ink);border-radius:100px;padding:7px 14px;font-size:13px;
+    background:#fffdf8;cursor:pointer;transition:.2s;transform:rotate(-1deg)}
+  .chip:nth-child(2){transform:rotate(1.5deg)} .chip:nth-child(3){transform:rotate(-2deg)}
+  .chip:hover{background:var(--ink);color:var(--paper)}
+  .chip.c-occ{border-color:var(--coral);color:var(--coral)} .chip.c-occ:hover{background:var(--coral);border-color:var(--coral);color:#fff}
+  .chip.c-peri{border-color:var(--peri);color:#43617f} .chip.c-sage{border-color:#6f8054;color:#556040}
+
+  /* reminds-me-of cluster */
+  .adj{left:872px;top:590px;width:300px}
+  .rmini{background:#fffdf8;padding:11px 14px;box-shadow:0 8px 18px rgba(60,45,25,.13);margin-bottom:12px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;transition:.3s}
+  .rmini:nth-child(1){transform:rotate(-1.5deg)} .rmini:nth-child(2){transform:rotate(1.2deg);margin-left:22px}
+  .rmini:nth-child(3){transform:rotate(-.8deg);margin-left:8px}
+  .rmini:hover{transform:translateX(4px) rotate(0)}
+  .rmini .nm{font-family:var(--serif);font-size:18px}
+  .rmini .why{font-family:var(--hand);font-size:17px;color:var(--terra);text-align:right;line-height:1.05;max-width:130px}
+
+  /* board node */
+  .board{left:118px;top:648px;width:220px;transform:rotate(-2deg);transition:.4s}
+  .board:hover{transform:rotate(0) translateY(-3px)}
+  .board .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px}
+  .board .grid span{aspect-ratio:1/1;background:repeating-linear-gradient(135deg,#eadfca,#eadfca 7px,#f3ead7 7px,#f3ead7 14px)}
+  .board .grid span:nth-child(1){background:var(--coral)} .board .grid span:nth-child(4){background:var(--butter)}
+  .board .bn{font-family:var(--serif);font-size:19px}
+  .board .bc{font-size:12px;color:var(--muted)}
+
+  /* colour swatch */
+  .swatch{left:328px;top:150px;width:120px;transform:rotate(5deg);text-align:center;transition:.4s}
+  .swatch:hover{transform:rotate(1deg) translateY(-3px)}
+  .swatch .chip-c{height:96px;background:#d98a8f;box-shadow:0 8px 18px rgba(60,45,25,.16)}
+  .swatch .lbl{font-family:var(--hand);font-size:19px;color:var(--muted);margin-top:5px}
+
+  /* taste sticker */
+  .taste{left:398px;top:762px;width:470px;background:var(--ink);color:var(--paper);padding:16px 22px;
+    transform:rotate(-1.2deg);box-shadow:0 14px 30px rgba(0,0,0,.24);z-index:3}
+  .taste .lab{font-family:var(--hand);font-size:24px;color:var(--butter);line-height:.9}
+  .taste p{margin:6px 0 0;font-family:var(--serif);font-size:16px;line-height:1.4}
+  .taste p em{color:#e7b7ad;font-style:normal}
+
+  /* floating margin note */
+  .note{left:96px;top:150px;width:230px;font-family:var(--hand);font-size:26px;color:var(--ink);
+    line-height:1.15;transform:rotate(-3deg)}
+  .note .u{border-bottom:3px solid var(--tomato);padding-bottom:1px}
+
+  .footmarq{overflow:hidden;white-space:nowrap;border-top:1px solid rgba(120,105,80,.3);margin-top:6px;padding:14px 0}
+  .footmarq b{font-family:var(--hand);font-size:24px;color:var(--terra);padding:0 26px;opacity:.75}
+
+  @media(max-width:1300px){ .stage{transform-origin:top center} }
+</style>
+
+<header>
+  <div>
+    <div class="word">Nishi <span class="jp">西</span></div>
+    <span class="tag-line">a second brain for style</span>
+  </div>
+  <div class="stamp">Filed under<b>the eye</b></div>
+</header>
+
+<div class="stage" id="stage">
+  <svg class="wires" viewBox="0 0 1280 940" preserveAspectRatio="none">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6" fill="none" stroke="#a2452f" stroke-width="1.3"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="#a2452f" stroke-width="1.6" opacity=".65" marker-end="url(#arrow)">
+      <!-- piece -> house -->
+      <path d="M770,300 C 850,250 880,230 918,220"/>
+      <!-- piece -> tags -->
+      <path d="M470,430 C 400,420 360,410 322,405"/>
+      <!-- piece -> reminds me of -->
+      <path d="M700,640 C 800,660 850,650 900,632"/>
+      <!-- piece -> board -->
+      <path d="M480,600 C 380,650 320,680 260,690"/>
+      <!-- piece -> swatch -->
+      <path d="M520,270 C 470,230 440,215 408,220"/>
+    </g>
+  </svg>
+
+  <!-- central piece -->
+  <div class="node piece">
+    <span class="tape tl"></span><span class="tape tr"></span>
+    <div class="card">
+      <button class="heart" id="heart">♥</button>
+      <div class="ph"><span class="occ">Date Night</span>
+        <img src="https://cdn.shopify.com/s/files/1/1519/7996/files/RAINA-DRESS_AZALEA_56483029-569_GHOST.jpg?v=1785871545" alt="Raina Dress">
+      </div>
+      <div class="meta">
+        <div class="name"><em>Raina</em> Dress</div>
+        <div class="sub"><span class="brand">Khaite</span><span>$2,800</span></div>
+        <div class="clipnote">clipped 3 weeks ago ·  still thinking about it</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- house -->
+  <div class="node house">
+    <span class="kicker" style="left:-6px;top:-30px">the house →</span>
+    <div class="mini">
+      <h3>Khaite</h3>
+      <div class="loc">New York · Luxury</div>
+      <p>New York luxury womenswear pairing polished tailoring with sensual, elevated everyday pieces.</p>
+    </div>
+  </div>
+
+  <!-- tags -->
+  <div class="node tags">
+    <span class="kicker" style="left:2px;top:-34px">← wired by</span>
+    <div class="chips">
+      <span class="chip">tailoring</span>
+      <span class="chip c-sage">relaxed</span>
+      <span class="chip c-peri">american</span>
+      <span class="chip c-occ">Date Night</span>
+    </div>
+  </div>
+
+  <!-- colour swatch -->
+  <div class="node swatch">
+    <div class="chip-c"></div>
+    <div class="lbl">azalea — a rose<br>you keep saving</div>
+  </div>
+
+  <!-- reminds me of -->
+  <div class="node adj">
+    <span class="kicker" style="right:0;top:-34px">reminds me of ↘</span>
+    <div class="rmini"><span class="nm">Commission</span><span class="why">both tailoring · also NY</span></div>
+    <div class="rmini"><span class="nm">Kallmeyer</span><span class="why">that same soft tailoring</span></div>
+    <div class="rmini"><span class="nm">Auralee</span><span class="why">broaden → Tokyo ease</span></div>
+  </div>
+
+  <!-- board -->
+  <div class="node board">
+    <span class="kicker" style="left:0;top:-32px">appears in ↓</span>
+    <div class="mini">
+      <div class="grid"><span></span><span></span><span></span><span></span></div>
+      <div class="bn">Soft September</div>
+      <div class="bc">14 pins · a board of yours</div>
+    </div>
+  </div>
+
+  <!-- margin note -->
+  <div class="node note">it's the <span class="u">neckline</span>. that's the whole thing, honestly.</div>
+
+  <!-- taste sticker -->
+  <div class="node taste">
+    <div class="lab">your eye, so far —</div>
+    <p>Leaning <em>tailoring</em> · <em>a soft rose</em> keeps recurring, and a neckline you can't quit.</p>
+  </div>
+</div>
+
+<div class="footmarq"><div>
+  <b>tend it, don't read it</b><b>·</b><b>follow the thread</b><b>·</b><b>this is yours</b><b>·</b><b>tend it, don't read it</b><b>·</b><b>follow the thread</b><b>·</b><b>this is yours</b><b>·</b>
+</div></div>
+
+<script>
+  const h = document.getElementById('heart');
+  h.addEventListener('click', () => { h.classList.remove('pop'); void h.offsetWidth; h.classList.add('pop'); });
+  // scale the fixed-width stage down on small screens
+  function fit(){ const s=document.getElementById('stage'); const w=Math.min(1, (innerWidth-20)/1280); s.style.transform='scale('+w+')'; s.style.height=(940*w+20)+'px'; }
+  addEventListener('resize', fit); fit();
+</script>

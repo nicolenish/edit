@@ -1,24 +1,8 @@
-import { Routes, Route } from 'react-router-dom'
-import Nav from './components/Nav'
-import WhatsNew from './features/whatsnew/WhatsNew'
-import Almanac from './features/almanac/Almanac'
-import BrandDetail from './features/brand/BrandDetail'
-import Boards from './features/boards/Boards'
-import Diary from './features/diary/Diary'
-import Discover from './features/discover/Discover'
+import GraphDesk from './features/graph/GraphDesk'
 
+// Nishi is the taste graph — a full-bleed workspace and the whole app. The earlier
+// browse-app (What's New / Almanac / Boards / Diary / Discover) has been retired; the
+// graph takes over every route, so "/" lands here too, not just "/graph".
 export default function App() {
-  return (
-    <div style={{ position: 'relative', background: '#fff', minHeight: '100vh' }}>
-      <Nav />
-      <Routes>
-        <Route path="/" element={<WhatsNew />} />
-        <Route path="/almanac" element={<Almanac />} />
-        <Route path="/brand/:key" element={<BrandDetail />} />
-        <Route path="/boards" element={<Boards />} />
-        <Route path="/diary" element={<Diary />} />
-        <Route path="/discover" element={<Discover />} />
-      </Routes>
-    </div>
-  )
+  return <GraphDesk />
 }
