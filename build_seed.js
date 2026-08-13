@@ -13,11 +13,11 @@ D.items.forEach(i => (itemsByBrand[i.brand] = itemsByBrand[i.brand] || []).push(
 
 const brands = Object.values(D.brands).map(b => {
   const its = itemsByBrand[b.key] || [];
-  const m = META[b.key] || [null,null,null,null];  // [founder, founded, city, story]
+  const m = META[b.key] || {};  // {founder, founded, city, story}
   return {
     key: b.key, name: b.name, kind: 'shoppable', domain: b.domain || '', url: b.url || '',
     hero_image_url: b.hero || '', tier: tierOf(median(its.map(i => num(i.price)))),
-    founder: m[0] || '', founded: m[1] || '', city: m[2] || '', story: m[3] || '',
+    founder: m.founder || '', founded: m.founded || '', city: m.city || '', story: m.story || '',
     designer: '', season: '', source: 'shopify',
   };
 });

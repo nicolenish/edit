@@ -7,6 +7,8 @@ from django.db import transaction
 from django.utils.dateparse import parse_datetime
 
 from catalog.models import Brand, Product, Look
+from catalog.tagging import derive_tags
+from library.models import Follow
 
 
 class Command(BaseCommand):
@@ -28,6 +30,8 @@ class Command(BaseCommand):
                     tier=b.get("tier", ""), founder=b.get("founder", ""),
                     founded=b.get("founded", ""), city=b.get("city", ""),
                     story=b.get("story", ""), source=b.get("source", "shopify"),
+                    tags=derive_tags(b.get("story", ""), b.get("city", "")),
+                    in_library=True,
                 ),
             )
             b_count += 1
@@ -43,6 +47,8 @@ class Command(BaseCommand):
                     story=e.get("story", ""), tier=e.get("tier", "luxury"),
                     season=e.get("season", ""), source=e.get("source", "blocked"),
                     hero_image_url=hero,
+                    tags=derive_tags(e.get("story", ""), e.get("city", "")),
+                    in_library=True,
                 ),
             )
             brand.looks.all().delete()
@@ -50,6 +56,25 @@ class Command(BaseCommand):
                 Look.objects.create(brand=brand, index=i, image_url=url or "", season=e.get("season", ""))
                 look_count += 1
             e_count += 1
+
+        # discovery candidates — labels not yet in the library (in_library=False)
+        c_count = 0
+        cand_path = Path(settings.BASE_DIR) / "seed" / "candidates.json"
+        if cand_path.exists():
+            for c in json.loads(cand_path.read_text()):
+                obj, _ = Brand.objects.get_or_create(
+                    key=c["key"], defaults={"name": c["name"], "in_library": False}
+                )
+                # refresh metadata but never flip in_library/dismissed on existing rows
+                obj.name = c["name"]
+                obj.kind = "editorial"
+                obj.city = c.get("city") or ""
+                obj.tier = c.get("tier", "premium")
+                obj.story = c.get("story", "")
+                obj.tags = c.get("tags", [])
+                obj.source = "candidate"
+                obj.save()
+                c_count += 1
 
         brands_by_key = {b.key: b for b in Brand.objects.all()}
         for p in data["products"]:
@@ -69,7 +94,14 @@ class Command(BaseCommand):
             )
             p_count += 1
 
+        # single-user: follow every house in the library by default
+        f_count = 0
+        for brand in Brand.objects.filter(in_library=True):
+            Follow.objects.get_or_create(brand=brand)
+            f_count += 1
+
         self.stdout.write(self.style.SUCCESS(
             f"Seeded {b_count} shoppable brands, {p_count} products, "
-            f"{e_count} editorial houses ({look_count} looks)."
+            f"{e_count} editorial houses ({look_count} looks), "
+            f"{c_count} discovery candidates; following {f_count}."
         ))

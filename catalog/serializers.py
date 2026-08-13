@@ -58,7 +58,8 @@ class BrandSerializer(serializers.ModelSerializer):
         fields = [
             "id", "key", "name", "kind", "domain", "url", "city", "founded",
             "founder", "designer", "story", "tier", "season", "hero_image_url",
-            "source", "last_ingested_at", "product_count", "look_count", "followed",
+            "source", "tags", "in_library", "last_ingested_at",
+            "product_count", "look_count", "followed",
         ]
 
     def get_followed(self, obj):

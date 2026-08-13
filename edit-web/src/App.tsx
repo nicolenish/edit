@@ -5,6 +5,7 @@ import Almanac from './features/almanac/Almanac'
 import BrandDetail from './features/brand/BrandDetail'
 import Boards from './features/boards/Boards'
 import Diary from './features/diary/Diary'
+import Discover from './features/discover/Discover'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/brand/:key" element={<BrandDetail />} />
         <Route path="/boards" element={<Boards />} />
         <Route path="/diary" element={<Diary />} />
+        <Route path="/discover" element={<Discover />} />
       </Routes>
     </div>
   )

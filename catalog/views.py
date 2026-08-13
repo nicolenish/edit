@@ -81,6 +81,33 @@ def product_list(request):
 
 
 @api_view(["GET"])
+def discover(request):
+    """Brands you don't follow yet, ranked by affinity to the ones you do."""
+    from .discover import discover as run
+    for_you, expand, note = run()
+    ctx = {"followed_keys": set()}
+
+    def card(entry):
+        data = BrandSerializer(entry["brand"], context=ctx).data
+        data["product_count"] = 0
+        data["look_count"] = 0
+        data["reason"] = entry["reason"]
+        return data
+
+    return Response({
+        "note": note,
+        "for_you": [card(e) for e in for_you],
+        "expand": [card(e) for e in expand],
+    })
+
+
+@api_view(["POST"])
+def brand_dismiss(request, key):
+    Brand.objects.filter(key=key).update(dismissed=True)
+    return Response({"key": key, "dismissed": True})
+
+
+@api_view(["GET"])
 def feed(request):
     """What's New — newest shoppable products across followed (or all) labels."""
     items = _product_list_data(request)

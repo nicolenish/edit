@@ -99,3 +99,22 @@ export interface Taste {
   leaning: string[]
   readout: string
 }
+
+export interface DiscoverBrand {
+  key: string
+  name: string
+  city: string
+  tier: Tier
+  tags: string[]
+  story: string
+  hero_image_url: string
+  kind: BrandKind
+  followed: boolean
+  reason: string
+}
+
+export interface Discover {
+  note: string
+  for_you: DiscoverBrand[]
+  expand: DiscoverBrand[]
+}

@@ -16,6 +16,7 @@ import type {
   DiaryEntry,
   Connection,
   Taste,
+  Discover,
 } from './types'
 
 export const qk = {
@@ -30,6 +31,7 @@ export const qk = {
   diaryEntry: (date: string) => ['diary', date] as const,
   connections: () => ['connections'] as const,
   taste: () => ['taste'] as const,
+  discover: () => ['discover'] as const,
 }
 
 // ---- Brands ----
@@ -76,6 +78,8 @@ export function useFollowBrand() {
       qc.invalidateQueries({ queryKey: ['brands'] })
       qc.invalidateQueries({ queryKey: qk.brand(vars.key) })
       qc.invalidateQueries({ queryKey: qk.taste() })
+      qc.invalidateQueries({ queryKey: qk.discover() })
+      qc.invalidateQueries({ queryKey: ['feed'] })
     },
   })
 }
@@ -272,6 +276,30 @@ export function useTaste() {
     queryFn: async () => {
       const { data } = await api.get<Taste>('/taste/')
       return data
+    },
+  })
+}
+
+// ---- Discover ----
+export function useDiscover() {
+  return useQuery<Discover>({
+    queryKey: qk.discover(),
+    queryFn: async () => {
+      const { data } = await api.get<Discover>('/discover/')
+      return data
+    },
+  })
+}
+
+export function useDismiss() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (key: string) => {
+      const { data } = await api.post<{ key: string; dismissed: boolean }>(`/brands/${key}/dismiss/`)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.discover() })
     },
   })
 }

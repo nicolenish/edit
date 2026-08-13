@@ -39,7 +39,10 @@ class Brand(models.Model):
     season = models.CharField(max_length=120, blank=True)  # editorial latest collection
 
     hero_image_url = models.URLField(max_length=1000, blank=True)
-    source = models.CharField(max_length=40, blank=True)  # shopify / wix / blocked
+    source = models.CharField(max_length=40, blank=True)  # shopify / wix / blocked / candidate
+    tags = models.JSONField(default=list, blank=True)  # aesthetic + region tags
+    in_library = models.BooleanField(default=True)  # False = discovery candidate, not yet in the almanac
+    dismissed = models.BooleanField(default=False)  # "not for me" — hidden from discovery
     last_ingested_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

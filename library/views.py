@@ -18,6 +18,9 @@ def follow(request, key):
     brand = get_object_or_404(Brand, key=key)
     if request.method == "POST":
         Follow.objects.get_or_create(brand=brand)
+        if not brand.in_library:  # following a discovery candidate adds it to the almanac
+            brand.in_library = True
+            brand.save(update_fields=["in_library"])
         return Response({"key": key, "followed": True})
     Follow.objects.filter(brand=brand).delete()
     return Response({"key": key, "followed": False})
