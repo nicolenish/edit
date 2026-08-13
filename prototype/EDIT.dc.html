@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet"><style>
+@keyframes edrift{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes efade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+body{margin:0;background:#fff;color:#14110b;font-family:'Jost',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#8a3b2e;text-decoration:none}a:hover{color:#14110b}
+::selection{background:#8a3b2e;color:#fff}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #8a3b2e;outline-offset:2px}
+</style></helmet>
+<div style="position:relative;background:#fff">
+{{ preview }}
+
+<div style="position:sticky;top:0;z-index:60;display:flex;justify-content:space-between;align-items:center;gap:24px;padding:13px 32px;background:#fff;border-bottom:1px solid #e6e3dd;font-size:12.5px">
+<span style="font-weight:600;letter-spacing:.2em;text-transform:uppercase">ÉDIT</span>
+<div style="display:flex;gap:26px;align-items:center">
+<button onClick="{{ goNew }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:4px 0;color: {{ navNew }}">What's New</button>
+<button onClick="{{ goBoards }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:4px 0;color: {{ navBoards }}">Boards</button>
+<button onClick="{{ goDiary }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:4px 0;color: {{ navDiary }}">Diary</button>
+<button onClick="{{ goAlmanac }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:4px 0;color: {{ navAlmanac }}">Almanac</button>
+</div>
+<span style="color:#8a857c">{{ pinnedCount }} pinned · {{ followCount }} followed</span>
+</div>
+
+<sc-if value="{{ isNew }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:230px 1fr;gap:44px;padding:28px 32px 96px;align-items:start">
+<aside>
+<div style="position:sticky;top:74px;max-height:calc(100vh - 92px);box-sizing:border-box;overflow-y:auto;scrollbar-width:thin;padding-right:12px;font-size:13.5px;line-height:1.85">
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:8px">Occasion</div>
+<sc-for list="{{ occasionFilters }}" as="o" hint-placeholder-count="4">
+<div onClick="{{ o.onPick }}" style="cursor:pointer;transition:color .3s;color: {{ o.color }}" style-hover="color:#8a3b2e">{{ o.label }}</div>
+</sc-for>
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin:24px 0 8px">Tier</div>
+<sc-for list="{{ tierFilters }}" as="t" hint-placeholder-count="4">
+<div onClick="{{ t.onPick }}" style="cursor:pointer;transition:color .3s;color: {{ t.color }}" style-hover="color:#8a3b2e">{{ t.label }} <span style="color:#c4c0b8;font-size:12px">{{ t.range }}</span></div>
+</sc-for>
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin:24px 0 8px">Labels</div>
+<input value="{{ labelQuery }}" onChange="{{ onLabelQuery }}" placeholder="Search labels" style="width:100%;box-sizing:border-box;border:1px solid #e6e3dd;background:none;font:inherit;font-size:13px;padding:8px 10px;outline:none;margin-bottom:8px" />
+<sc-for list="{{ labelList }}" as="l" hint-placeholder-count="10">
+<div onClick="{{ l.onPick }}" data-idx-row="{{ l.key }}" style="cursor:pointer;transition:color .3s;color: {{ l.color }}" style-hover="color:#8a3b2e">{{ l.name }}</div>
+</sc-for>
+</div>
+</aside>
+
+<div style="min-width:0">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding-bottom:16px;border-bottom:1px solid #14110b;margin-bottom:8px;flex-wrap:wrap">
+<div>
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:38px;letter-spacing:-.02em;margin:0">What's New</h2>
+<div style="font-size:13px;color:#8a857c;margin-top:6px">{{ feedSummary }}</div>
+</div>
+<div style="display:flex;gap:10px;align-items:center">
+<button onClick="{{ toggleFollowedOnly }}" style="border:1px solid #e6e3dd;background: {{ followedOnlyBg }};font:inherit;font-size:12.5px;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ followedOnlyColor }}" style-hover="border-color:#14110b">Followed only</button>
+<button onClick="{{ clearFilters }}" style="border:none;background:none;font:inherit;font-size:12.5px;color:#8a857c;cursor:pointer;padding:8px 4px" style-hover="color:#14110b">Clear filters</button>
+</div>
+</div>
+
+<sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:8px;flex-wrap:wrap;padding:14px 0 0">
+<sc-for list="{{ activeFilters }}" as="a" hint-placeholder-count="2">
+<button onClick="{{ a.onClear }}" style="border:1px solid #14110b;background:none;font:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer">{{ a.label }} ✕</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ feedEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding:80px 0;max-width:46ch">
+<div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;line-height:1.25;margin-bottom:12px">Nothing here yet.</div>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#8a857c">Either no label you follow has dropped under these filters, or you haven't followed anyone. Both are fixable.</p>
+<button onClick="{{ openOnboard }}" style="border:1px solid #14110b;background:none;font:inherit;font-size:12.5px;padding:10px 18px;border-radius:999px;cursor:pointer">Find labels to follow</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasSinceLast }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:14px;margin:30px 0 22px">
+<span style="font-family:'Caveat',cursive;font-size:27px;color:#8a3b2e;white-space:nowrap">since your last visit</span>
+<span style="flex:1;height:1px;background:#e6e3dd"></span>
+<span style="font-size:12.5px;color:#a8a49c">{{ sinceCount }} pieces</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:40px 22px">
+<sc-for list="{{ feedSince }}" as="f" hint-placeholder-count="6">
+<div tabindex="0" onClick="{{ f.onOpen }}" onKeyDown="{{ f.onKey }}" style="display:flex;flex-direction:column;gap:8px;cursor:pointer">
+<div style="position:relative;aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:12px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#8a857c">{{ f.title }}</span>
+<span style="position:absolute;top:10px;left:10px;font-size:11px;background: {{ f.flagBg }};padding: {{ f.flagPad }};color: {{ f.flagColor }}">{{ f.flag }}</span>
+<button onClick="{{ f.onPin }}" style="position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:999px;border:none;background:rgba(255,255,255,.9);cursor:pointer;font-size:14px;line-height:1;transition:transform .3s cubic-bezier(.19,1,.22,1);color: {{ f.pinColor }}" style-hover="transform:scale(1.12)">♥</button>
+</div>
+<div style="font-size:12.5px;letter-spacing:.08em;text-transform:uppercase">{{ f.brandName }}</div>
+<div style="font-size:14px;line-height:1.35;color:#3d3830">{{ f.title }}</div>
+<div style="display:flex;gap:10px;font-size:13px;color:#8a857c"><span>{{ f.price }}</span><span style="color:#c4c0b8">{{ f.color }}</span></div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:14px;margin:46px 0 22px">
+<span style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#a8a49c;white-space:nowrap">Earlier</span>
+<span style="flex:1;height:1px;background:#e6e3dd"></span>
+</div>
+</sc-if>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:40px 22px">
+<sc-for list="{{ feedRest }}" as="f" hint-placeholder-count="12">
+<div tabindex="0" onClick="{{ f.onOpen }}" onKeyDown="{{ f.onKey }}" style="display:flex;flex-direction:column;gap:8px;cursor:pointer">
+<div style="position:relative;aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:12px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#8a857c">{{ f.title }}</span>
+<span style="position:absolute;top:10px;left:10px;font-size:11px;background: {{ f.flagBg }};padding: {{ f.flagPad }};color: {{ f.flagColor }}">{{ f.flag }}</span>
+<button onClick="{{ f.onPin }}" style="position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:999px;border:none;background:rgba(255,255,255,.9);cursor:pointer;font-size:14px;line-height:1;transition:transform .3s cubic-bezier(.19,1,.22,1);color: {{ f.pinColor }}" style-hover="transform:scale(1.12)">♥</button>
+</div>
+<div style="font-size:12.5px;letter-spacing:.08em;text-transform:uppercase">{{ f.brandName }}</div>
+<div style="font-size:14px;line-height:1.35;color:#3d3830">{{ f.title }}</div>
+<div style="display:flex;gap:10px;font-size:13px;color:#8a857c"><span>{{ f.price }}</span><span style="color:#c4c0b8">{{ f.color }}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBoards }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:230px 1fr;gap:44px;padding:32px 32px 96px;align-items:start">
+<aside>
+<div style="position:sticky;top:74px">
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:12px">Boards</div>
+<sc-for list="{{ boardList }}" as="b" hint-placeholder-count="4">
+<div onClick="{{ b.onPick }}" style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #e6e3dd;cursor:pointer;font-size:14px;transition:padding .5s cubic-bezier(.19,1,.22,1);color: {{ b.color }}" style-hover="padding-left:8px">
+<span>{{ b.name }}</span><span style="color:#c4c0b8;font-size:13px">{{ b.count }}</span>
+</div>
+</sc-for>
+<div style="display:flex;gap:8px;margin-top:18px">
+<input value="{{ newBoardName }}" onChange="{{ onNewBoardName }}" placeholder="New board" style="flex:1;min-width:0;border:1px solid #e6e3dd;background:none;font:inherit;font-size:13px;padding:8px 10px;outline:none" />
+<button onClick="{{ addBoard }}" style="border:1px solid #14110b;background:none;font:inherit;font-size:13px;padding:8px 12px;cursor:pointer">+</button>
+</div>
+</div>
+</aside>
+<div style="min-width:0">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:16px;border-bottom:1px solid #14110b;margin-bottom:26px">
+<div>
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:38px;letter-spacing:-.02em;margin:0">{{ activeBoardName }}</h2>
+<div style="font-size:13px;color:#8a857c;margin-top:6px">{{ activeBoardSummary }}</div>
+</div>
+<span style="font-size:13px;color:#8a857c">{{ activeBoardTotal }}</span>
+</div>
+<sc-if value="{{ boardEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding:70px 0;max-width:44ch">
+<div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;line-height:1.25;margin-bottom:12px">An empty board.</div>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#8a857c">Pin from What's New, or clip an image in the Diary — pins land in whichever board is open here.</p>
+<button onClick="{{ goNew }}" style="border:1px solid #14110b;background:none;font:inherit;font-size:12.5px;padding:10px 18px;border-radius:999px;cursor:pointer">Go to What's New</button>
+</div>
+</sc-if>
+<div style="columns:4;column-gap:20px">
+<sc-for list="{{ boardPins }}" as="p" hint-placeholder-count="8">
+<div style="break-inside:avoid;margin-bottom:20px">
+<div onClick="{{ p.onOpen }}" style="position:relative;aspect-ratio:{{ p.ratio }};background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:12px;cursor:pointer">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#8a857c">{{ p.title }}</span>
+<button onClick="{{ p.onUnpin }}" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:999px;border:none;background:rgba(255,255,255,.9);cursor:pointer;font-size:13px;line-height:1;color:#8a3b2e">♥</button>
+</div>
+<div style="display:flex;justify-content:space-between;gap:8px;padding-top:8px;font-size:12.5px;color:#8a857c"><span style="text-transform:uppercase;letter-spacing:.08em">{{ p.brandName }}</span><span>{{ p.price }}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDiary }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:210px 1fr 310px;gap:44px;padding:32px 32px 96px;align-items:start">
+<aside>
+<div style="position:sticky;top:74px;font-size:13.5px">
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">August 2026</div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:22px">
+<sc-for list="{{ monthCells }}" as="d" hint-placeholder-count="31">
+<div title="{{ d.title }}" style="aspect-ratio:1/1;background: {{ d.bg }};border-radius:2px"></div>
+</sc-for>
+</div>
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:8px">Entries</div>
+<sc-for list="{{ entries }}" as="e" hint-placeholder-count="6">
+<div style="padding:9px 0;border-top:1px solid #e6e3dd;display:flex;justify-content:space-between;gap:8px;cursor:pointer;transition:padding .5s cubic-bezier(.19,1,.22,1)" style-hover="padding-left:8px">
+<span style="font-variant-numeric:tabular-nums;color: {{ e.color }}">{{ e.date }}</span>
+<span style="color:#a8a49c;font-size:12.5px">{{ e.tag }}</span>
+</div>
+</sc-for>
+</div>
+</aside>
+
+<div style="min-width:0">
+<div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:14px;border-bottom:1px solid #14110b">
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(30px,3.4vw,50px);letter-spacing:-.02em;margin:0">Tuesday, 12 August</h2>
+<span style="font-family:'Caveat',cursive;font-size:27px;color:#8a3b2e">today</span>
+</div>
+<div style="font-size:13px;color:#8a857c;padding:14px 0;border-bottom:1px solid #e6e3dd">{{ activityLine }}</div>
+
+<textarea placeholder="What caught your eye today?" style="width:100%;box-sizing:border-box;border:none;outline:none;background:none;resize:vertical;font-family:'Cormorant Garamond',Georgia,serif;font-size:19px;line-height:1.55;color:#14110b;padding:24px 0;min-height:110px"></textarea>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;padding-bottom:24px;border-bottom:1px solid #e6e3dd">
+<sc-for list="{{ moodTags }}" as="m" hint-placeholder-count="5">
+<span style="font-size:12.5px;color:#8a857c;border:1px solid #e6e3dd;border-radius:999px;padding:6px 13px;cursor:pointer;transition:all .3s" style-hover="border-color:#8a3b2e;color:#8a3b2e">{{ m }}</span>
+</sc-for>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin:32px 0 16px;gap:16px;flex-wrap:wrap">
+<h3 style="font-family:'Caveat',cursive;font-size:28px;color:#14110b;font-weight:400;margin:0">clipped today <span style="font-family:'Jost',sans-serif;font-size:12.5px;color:#a8a49c">— anything you heart lands here</span></h3>
+<div style="display:flex;gap:16px;font-size:12.5px">
+<button onClick="{{ filtAll }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:0;color: {{ fAll }}">All</button>
+<button onClick="{{ filtShop }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:0;color: {{ fShop }}">Shoppable</button>
+<button onClick="{{ filtInspo }}" style="border:none;background:none;font:inherit;cursor:pointer;padding:0;color: {{ fInspo }}">Inspo</button>
+</div>
+</div>
+<div style="columns:3;column-gap:16px">
+<sc-for list="{{ visibleClips }}" as="c" hint-placeholder-count="7">
+<div style="break-inside:avoid;margin-bottom:18px">
+<div style="position:relative;aspect-ratio:{{ c.ratio }};background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:10px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;color:#8a857c">{{ c.title }}</span>
+<span style="position:absolute;top:8px;left:8px;font-size:11px;background:rgba(255,255,255,.92);padding:4px 8px;color: {{ c.badgeColor }}">{{ c.badge }}</span>
+</div>
+<div style="display:flex;justify-content:space-between;gap:8px;padding-top:7px;font-size:12.5px;color:#8a857c"><span>{{ c.brandName }}</span><span style="color: {{ c.metaColor }}">{{ c.meta }}</span></div>
+<div style="padding-top:6px">
+<button onClick="{{ c.onTag }}" style="border:1px solid #e6e3dd;background:none;font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ c.tagColor }}" style-hover="border-color:#14110b">{{ c.tagLabel }}</button>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<aside>
+<div style="position:sticky;top:74px;display:flex;flex-direction:column;gap:24px">
+<div style="border:1px solid #e6e3dd;padding:18px">
+<div style="font-family:'Caveat',cursive;font-size:27px;color:#14110b;margin-bottom:6px">pin from</div>
+<sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #e6e3dd">
+<div style="display:flex;flex-direction:column;gap:3px">
+<span style="font-size:14px">{{ s.name }}</span>
+<span style="font-size:12.5px;color:#a8a49c">{{ s.detail }}</span>
+</div>
+<button onClick="{{ s.onToggle }}" style="border:1px solid #e6e3dd;background:none;font:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ s.color }}" style-hover="border-color:#14110b">{{ s.action }}</button>
+</div>
+</sc-for>
+<p style="margin:12px 0 0;font-size:12.5px;line-height:1.5;color:#a8a49c">Saved posts and boards land in Inspo. Tag a piece on any image to make it shoppable.</p>
+</div>
+
+<div style="background:#faf8f5;padding:18px">
+<div style="font-family:'Caveat',cursive;font-size:28px;color:#8a3b2e;margin-bottom:4px">your eye, so far</div>
+<p style="margin:0 0 14px;font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;line-height:1.5">{{ eyeReadout }}</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<sc-for list="{{ eyeChips }}" as="c" hint-placeholder-count="2">
+<button onClick="{{ c.onApply }}" style="border:1px solid #e0dbd2;background:#fff;font:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;transition:all .3s" style-hover="border-color:#8a3b2e;color:#8a3b2e">More {{ c.label }} →</button>
+</sc-for>
+</div>
+</div>
+
+<div style="border:1px solid #e6e3dd;padding:18px">
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Wishlist</div>
+<sc-for list="{{ wishlist }}" as="w" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid #e6e3dd;font-size:13.5px">
+<span>{{ w.title }} <span style="color:#a8a49c">/ {{ w.brandName }}</span></span>
+<span style="color:#8a857c;font-variant-numeric:tabular-nums">{{ w.price }}</span>
+</div>
+</sc-for>
+<div style="display:flex;justify-content:space-between;padding-top:12px;margin-top:6px;border-top:1px solid #14110b;font-size:12.5px"><span>Total</span><span>{{ wishTotal }}</span></div>
+</div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAlmanac }}" hint-placeholder-val="{{ false }}">
+<section style="min-height:76vh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 32px 56px;border-bottom:1px solid #e6e3dd">
+<div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(56px,10.5vw,170px);line-height:.92;letter-spacing:-.03em;max-width:14ch">The brands worth knowing.</div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-top:44px;flex-wrap:wrap">
+<p style="max-width:44ch;margin:0;font-size:15px;line-height:1.6;color:#8a857c;text-wrap:pretty">A reading room for independent labels — followed, pinned, and filed by price tier. Not a store. <span style="font-family:'Caveat',cursive;font-size:25px;color:#8a3b2e">an index of taste.</span></p>
+<div style="display:flex;gap:32px;font-size:13px;color:#8a857c"><span>{{ brandCount }} labels</span><span>{{ feedCount }} pieces</span><span>3 tiers</span></div>
+</div>
+</section>
+
+<div style="display:grid;grid-template-columns:minmax(360px,32%) 1fr;gap:56px;padding:0 32px">
+<aside id="index">
+<div style="position:sticky;top:74px;max-height:calc(100vh - 74px);box-sizing:border-box;overflow-y:auto;scrollbar-width:thin;padding:40px 12px 32px 0">
+<div style="display:grid;grid-template-columns:52px 1fr auto;gap:12px;padding-bottom:6px;font-size:12px;color:#a8a49c">
+<span>Number</span><span>Label</span><span>Pieces</span>
+</div>
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+<div style="border-top:1px solid #14110b;margin-top:20px">
+<div onClick="{{ g.onJump }}" style="display:grid;grid-template-columns:52px 1fr auto;gap:12px;padding:7px 0 6px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:#8a3b2e;cursor:pointer">
+<span>{{ g.no }}</span><span>{{ g.label }}</span><span style="color:#a8a49c;text-transform:none;letter-spacing:0;white-space:nowrap;font-size:11.5px">{{ g.range }}</span>
+</div>
+<sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="5">
+<div tabindex="0" data-idx-row="{{ r.key }}" onClick="{{ r.onJump }}" onKeyDown="{{ r.onKey }}" style="display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:baseline;padding:7px 0 6px;border-top:1px solid #e6e3dd;cursor:pointer;font-size:13.5px;line-height:1.3;transition:padding .6s cubic-bezier(.19,1,.22,1)" style-hover="padding-left:10px">
+<span style="color:#a8a49c;font-variant-numeric:tabular-nums">{{ r.no }}</span>
+<span>{{ r.name }} <span style="color:#a8a49c">/ {{ r.city }}</span></span>
+<span style="color: {{ r.followColor }};font-variant-numeric:tabular-nums">{{ r.count }}</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</aside>
+
+<div style="min-width:0">
+<section style="padding:56px 0 40px;border-bottom:1px solid #e6e3dd">
+<div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(38px,5.2vw,80px);line-height:.98;letter-spacing:-.03em">Index of every<br /><em>house</em> we read,<br />filed by tier.</div>
+<p style="max-width:44ch;margin:26px 0 0;font-size:14px;line-height:1.6;color:#8a857c;text-wrap:pretty">The index stays with you — hover a line to preview, click to open the house and its latest show. Labels you follow are marked in terracotta.</p>
+</section>
+
+<section style="padding:70px 0;border-bottom:1px solid #e6e3dd">
+<div style="font-family:'Caveat',cursive;font-size:32px;color:#8a3b2e;margin-bottom:12px;transform:rotate(-1.4deg);transform-origin:left">House of the week</div>
+<div onClick="{{ featured.onOpen }}" style="display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center;cursor:pointer">
+<div style="aspect-ratio:4/5;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:16px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#8a857c">campaign image — {{ featured.name }}</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px">
+<h3 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(34px,4.4vw,64px);line-height:1;letter-spacing:-.03em;margin:0">{{ featured.name }}</h3>
+<p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;line-height:1.5;color:#3d3830;max-width:34ch;text-wrap:pretty">{{ featured.story }}</p>
+<div style="display:flex;gap:26px;font-size:13px;color:#8a857c;flex-wrap:wrap">
+<span>Founded {{ featured.founded }}</span><span>{{ featured.founder }}</span><span>{{ featured.city }}</span><span>{{ featured.tier }}</span>
+</div>
+<span style="font-family:'Caveat',cursive;font-size:25px;color:#8a3b2e">read the house, then the show →</span>
+</div>
+</div>
+</section>
+
+<section style="padding:76px 0;border-bottom:1px solid #e6e3dd">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:30px">
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:14px;letter-spacing:.18em;text-transform:uppercase;margin:0">Dispatches</h2>
+<span style="font-size:13px;color:#8a857c">Six houses, in their own words</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0;border-top:1px solid #14110b">
+<sc-for list="{{ houseEssays }}" as="e" hint-placeholder-count="6">
+<div onClick="{{ e.onOpen }}" style="padding:28px 34px 32px 30px;border-right:1px solid #e6e3dd;border-bottom:1px solid #e6e3dd;cursor:pointer;display:flex;flex-direction:column;gap:10px;transition:background .35s" style-hover="background:#faf8f5">
+<span style="font-size:12px;color:#a8a49c">{{ e.city }} · est. {{ e.founded }}</span>
+<span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;letter-spacing:-.01em">{{ e.name }}</span>
+<p style="margin:0;font-size:14px;line-height:1.55;color:#8a857c;text-wrap:pretty">{{ e.story }}</p>
+<span style="font-size:12.5px;color:#8a3b2e;margin-top:2px">{{ e.founder }} →</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section id="houses" style="padding:80px 0;border-bottom:1px solid #e6e3dd">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:32px">
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:14px;letter-spacing:.18em;text-transform:uppercase;margin:0">The Houses</h2>
+<span style="font-size:13px;color:#8a857c">{{ followCount }} followed</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:28px">
+<sc-for list="{{ houses }}" as="h" hint-placeholder-count="8">
+<div id="house-{{ h.key }}" onClick="{{ h.onOpen }}" style="display:flex;flex-direction:column;gap:12px;scroll-margin-top:84px;cursor:pointer">
+<div style="aspect-ratio:4/5;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:14px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#8a857c">brand image — {{ h.name }}</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+<span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:19px">{{ h.name }}</span>
+<span style="font-size:13px;color:#8a857c">{{ h.count }}</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:#8a857c">
+<button onClick="{{ h.onFollow }}" style="border:1px solid #e6e3dd;background:none;padding:7px 13px;border-radius:999px;font:inherit;font-size:12px;cursor:pointer;transition:all .3s;color: {{ h.followColor }}" style-hover="border-color:#14110b">{{ h.followLabel }}</button>
+<span>Shop ↗</span>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section id="adjacent" style="padding:76px 0;border-bottom:1px solid #e6e3dd">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:26px;gap:20px;flex-wrap:wrap">
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:14px;letter-spacing:.18em;text-transform:uppercase;margin:0">Adjacent Houses</h2>
+<span style="font-size:13px;color:#8a857c">{{ discoverNote }}</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));border-top:1px solid #14110b">
+<sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:9px;padding:24px 26px 26px 28px;border-right:1px solid #e6e3dd">
+<span style="font-size:12px;color:#8a3b2e;line-height:1.4">{{ s.reason }}</span>
+<span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;letter-spacing:-.01em">{{ s.name }}</span>
+<span style="font-size:13px;color:#8a857c">{{ s.city }} · {{ s.note }}</span>
+<span style="font-size:12.5px;color:#a8a49c">{{ s.tier }}</span>
+<div style="display:flex;gap:8px;margin-top:6px">
+<button onClick="{{ s.onFollow }}" style="border:1px solid #e6e3dd;background:none;font:inherit;font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ s.followColor }}" style-hover="border-color:#14110b">{{ s.followLabel }}</button>
+<button onClick="{{ s.onDismiss }}" style="border:none;background:none;font:inherit;font-size:12px;color:#c4c0b8;cursor:pointer;padding:8px 4px" style-hover="color:#14110b">Not for me</button>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<sc-for list="{{ chapters }}" as="c" hint-placeholder-count="3">
+<section id="tier-{{ c.key }}" style="padding:100px 0;border-bottom:1px solid #e6e3dd;scroll-margin-top:84px">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap;margin-bottom:40px">
+<div>
+<div style="font-size:12.5px;color:#8a857c;margin-bottom:12px">Tier {{ c.no }} · {{ c.range }}</div>
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(44px,7.4vw,100px);line-height:.95;letter-spacing:-.03em;margin:0">{{ c.label }}</h2>
+</div>
+<p style="max-width:38ch;margin:0;font-size:15px;line-height:1.6;color:#8a857c;text-wrap:pretty">{{ c.blurb }}</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:30px 24px">
+<sc-for list="{{ c.items }}" as="it" hint-placeholder-count="6">
+<div onClick="{{ it.onOpen }}" style="display:flex;flex-direction:column;gap:10px;cursor:pointer">
+<div style="position:relative;aspect-ratio:{{ it.ratio }};background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:14px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#8a857c">{{ it.title }}</span>
+<button onClick="{{ it.onPin }}" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:999px;border:none;background:rgba(255,255,255,.88);cursor:pointer;font-size:14px;line-height:1;transition:transform .3s cubic-bezier(.19,1,.22,1);color: {{ it.pinColor }}" style-hover="transform:scale(1.12)">♥</button>
+</div>
+<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:#8a857c"><span style="text-transform:uppercase;letter-spacing:.08em">{{ it.brandName }}</span><span>{{ it.price }}</span></div>
+<div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;line-height:1.25">{{ it.title }}</div>
+<div style="font-size:13px;color:#8a857c">{{ it.color }}</div>
+</div>
+</sc-for>
+</div>
+</section>
+</sc-for>
+
+<section style="padding:96px 0;display:flex;flex-direction:column;gap:24px;align-items:flex-start">
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(34px,5vw,68px);line-height:1;letter-spacing:-.02em;margin:0">Follow a label.</h2>
+<div style="display:flex;align-items:center;border-bottom:1px solid #14110b;width:min(560px,100%)">
+<input placeholder="paste a brand url" style="flex:1;border:none;outline:none;background:none;font:inherit;font-size:17px;padding:12px 0;color:#14110b" />
+<button style="border:none;background:none;font:inherit;font-size:12.5px;color:#8a3b2e;cursor:pointer;padding:12px 4px">Add ↗</button>
+</div>
+<p style="margin:0;font-size:13.5px;color:#8a857c;max-width:44ch">We read the label's catalogue and file its pieces into your tiers.</p>
+</section>
+
+<footer style="border-top:1px solid #e6e3dd;padding:28px 0;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font-size:12.5px;color:#8a857c">
+<span>ÉDIT</span><span>{{ tasteLine }}</span><span>© 2026</span>
+</footer>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBrand }}" hint-placeholder-val="{{ false }}">
+<div tabindex="0" onKeyDown="{{ brand.onKey }}" style="outline:none">
+<section style="padding:34px 32px 0">
+<button onClick="{{ backToAlmanac }}" style="border:none;background:none;font:inherit;font-size:12.5px;color:#8a857c;cursor:pointer;padding:0 0 26px">← Almanac</button>
+<div style="display:grid;grid-template-columns:1fr auto;gap:32px;align-items:end;border-bottom:1px solid #14110b;padding-bottom:26px">
+<div>
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(48px,8vw,128px);line-height:.9;letter-spacing:-.035em;margin:0">{{ brand.name }}</h2>
+<div style="display:flex;gap:26px;flex-wrap:wrap;font-size:13.5px;color:#8a857c;margin-top:18px">
+<span>{{ brand.city }}</span><span>Founded {{ brand.founded }}</span><span>{{ brand.founder }}</span><span>{{ brand.tier }}</span>
+</div>
+</div>
+<button onClick="{{ brand.onFollow }}" style="border:1px solid #14110b;background:none;font:inherit;font-size:13px;padding:12px 22px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:all .3s;color: {{ brand.followColor }}" style-hover="background:#faf3f1">{{ brand.followLabel }}</button>
+</div>
+<p style="max-width:52ch;margin:26px 0 0;font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.5;color:#3d3830;text-wrap:pretty">{{ brand.story }}</p>
+</section>
+
+<section style="padding:38px 32px 0">
+<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:baseline;font-size:13px;border-bottom:1px solid #e6e3dd;padding-bottom:14px">
+<span style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c">Collections</span>
+<sc-for list="{{ brand.seasons }}" as="sn" hint-placeholder-count="4">
+<button onClick="{{ sn.onPick }}" style="border:none;background:none;font:inherit;font-size:13px;cursor:pointer;padding:0;color: {{ sn.color }}">{{ sn.label }}</button>
+</sc-for>
+</div>
+</section>
+
+<section style="display:grid;grid-template-columns:1.15fr 1fr;gap:44px;padding:34px 32px 60px;align-items:start">
+<div>
+<div style="position:relative;aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:18px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8a857c">runway look {{ brand.lookNo }} — {{ brand.name }}, {{ brand.seasonLabel }}</span>
+<button onClick="{{ brand.prev }}" style="position:absolute;top:0;left:0;bottom:0;width:22%;border:none;background:none;cursor:w-resize;font-size:20px;color:#8a857c">‹</button>
+<button onClick="{{ brand.next }}" style="position:absolute;top:0;right:0;bottom:0;width:22%;border:none;background:none;cursor:e-resize;font-size:20px;color:#8a857c">›</button>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:14px;font-size:13px;color:#8a857c">
+<span style="font-variant-numeric:tabular-nums">Look {{ brand.lookNo }} / {{ brand.lookCount }}</span>
+<span style="font-family:'Caveat',cursive;font-size:26px;color:#14110b">{{ brand.lookTitle }}</span>
+<span>← → to move</span>
+</div>
+<div style="display:flex;gap:6px;overflow-x:auto;padding-top:16px;scrollbar-width:thin">
+<sc-for list="{{ brand.thumbs }}" as="t" hint-placeholder-count="14">
+<div onClick="{{ t.onPick }}" style="flex:none;width:44px;height:58px;background:repeating-linear-gradient(135deg,#efede8,#efede8 6px,#f6f4f0 6px,#f6f4f0 12px);border:1px solid {{ t.border }};cursor:pointer"></div>
+</sc-for>
+</div>
+</div>
+
+<div style="position:sticky;top:88px">
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:14px">In this look</div>
+<sc-for list="{{ brand.pieces }}" as="p" hint-placeholder-count="3">
+<div onClick="{{ p.onOpen }}" style="display:grid;grid-template-columns:74px 1fr auto;gap:14px;align-items:center;padding:14px 0;border-top:1px solid #e6e3dd;cursor:pointer">
+<div style="aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#efede8,#efede8 7px,#f6f4f0 7px,#f6f4f0 14px)"></div>
+<div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+<span style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8a857c">{{ p.brandName }}</span>
+<span style="font-size:14.5px;line-height:1.3">{{ p.title }}</span>
+<span style="font-size:13px;color:#8a857c">{{ p.price }} · {{ p.color }}</span>
+</div>
+<button onClick="{{ p.onPin }}" style="width:34px;height:34px;border-radius:999px;border:1px solid #e6e3dd;background:none;cursor:pointer;font-size:14px;line-height:1;color: {{ p.pinColor }}" style-hover="border-color:#14110b">♥</button>
+</div>
+</sc-for>
+<p style="margin:20px 0 0;font-size:12.5px;line-height:1.6;color:#a8a49c">Pieces are matched to the look — pin the whole look to a board, or open one to buy.</p>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasSelected }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeItem }}" style="position:fixed;inset:0;background:rgba(20,17,11,.28);z-index:70"></div>
+<div style="position:fixed;top:0;right:0;bottom:0;width:min(560px,94vw);background:#fff;z-index:71;overflow-y:auto;box-shadow:-1px 0 0 #e6e3dd;animation:efade .4s cubic-bezier(.19,1,.22,1)">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:18px 26px;border-bottom:1px solid #e6e3dd;font-size:12.5px;color:#8a857c">
+<span>{{ selected.tier }}</span>
+<button onClick="{{ closeItem }}" style="border:none;background:none;font:inherit;font-size:16px;cursor:pointer;color:#14110b">✕</button>
+</div>
+<div style="padding:26px">
+<div style="aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px);display:flex;align-items:flex-end;padding:16px;margin-bottom:24px">
+<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8a857c">product image — {{ selected.title }}</span>
+</div>
+<div style="font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:#8a857c">{{ selected.brandName }}</div>
+<h3 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;letter-spacing:-.02em;margin:10px 0 12px">{{ selected.title }}</h3>
+<div style="display:flex;gap:14px;align-items:baseline;font-size:17px;margin-bottom:22px">
+<span>{{ selected.price }}</span>
+<span style="font-size:13.5px;color:#a8a49c">{{ selected.color }}</span>
+<span style="font-size:12.5px;color:#8a3b2e">{{ selected.flagNote }}</span>
+</div>
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Size</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px">
+<sc-for list="{{ selected.sizes }}" as="s" hint-placeholder-count="5">
+<span style="border:1px solid #e6e3dd;padding:9px 15px;font-size:13.5px;cursor:pointer;transition:all .3s;color: {{ s.color }}" style-hover="border-color:#14110b">{{ s.label }}</span>
+</sc-for>
+</div>
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Pin to board</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px">
+<sc-for list="{{ selected.boards }}" as="b" hint-placeholder-count="3">
+<button onClick="{{ b.onPin }}" style="border:1px solid #e6e3dd;background:none;font:inherit;font-size:12.5px;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ b.color }}" style-hover="border-color:#14110b">{{ b.name }}</button>
+</sc-for>
+</div>
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Where to buy</div>
+<sc-for list="{{ selected.retailers }}" as="r" hint-placeholder-count="3">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid #e6e3dd;font-size:13.5px">
+<div style="display:flex;flex-direction:column;gap:3px"><span>{{ r.name }}</span><span style="font-size:12.5px;color:#a8a49c">{{ r.note }}</span></div>
+<span style="color:#8a3b2e">{{ r.price }} ↗</span>
+</div>
+</sc-for>
+<button style="width:100%;margin-top:22px;border:none;background:#14110b;color:#fff;font:inherit;font-size:13.5px;letter-spacing:.06em;padding:16px;cursor:pointer;transition:background .3s" style-hover="background:#8a3b2e">Shop at {{ selected.brandName }} ↗</button>
+<button onClick="{{ findSimilar }}" style="width:100%;margin-top:10px;border:1px solid #e6e3dd;background:none;font:inherit;font-size:13.5px;padding:15px;cursor:pointer;transition:all .3s" style-hover="border-color:#14110b">Find similar in your tiers</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ tagging }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeTagging }}" style="position:fixed;inset:0;background:rgba(20,17,11,.28);z-index:72"></div>
+<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,92vw);max-height:80vh;overflow-y:auto;background:#fff;z-index:73;padding:26px;box-shadow:0 18px 60px rgba(20,17,11,.18);animation:efade .35s cubic-bezier(.19,1,.22,1)">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+<h3 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:26px;margin:0">Tag a piece on this image</h3>
+<button onClick="{{ closeTagging }}" style="border:none;background:none;font:inherit;font-size:16px;cursor:pointer">✕</button>
+</div>
+<p style="margin:0 0 18px;font-size:13.5px;color:#8a857c">Attach a shoppable piece to the inspo shot — it stays linked in your diary and boards.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">
+<sc-for list="{{ taggableItems }}" as="t" hint-placeholder-count="8">
+<div onClick="{{ t.onPick }}" style="cursor:pointer;display:flex;flex-direction:column;gap:6px">
+<div style="aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px)"></div>
+<span style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8a857c">{{ t.brandName }}</span>
+<span style="font-size:13px;line-height:1.3">{{ t.title }}</span>
+<span style="font-size:12.5px;color:#8a857c">{{ t.price }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ onboarding }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;background:#fff;z-index:90;overflow-y:auto;padding:56px 32px">
+<div style="max-width:900px;margin:0 auto">
+<div style="font-family:'Caveat',cursive;font-size:32px;color:#8a3b2e;margin-bottom:6px">one minute, once</div>
+<h2 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(34px,5vw,64px);line-height:1;letter-spacing:-.03em;margin:0 0 14px">Start with five labels.</h2>
+<p style="margin:0 0 34px;font-size:15px;line-height:1.6;color:#8a857c;max-width:52ch">Everything downstream — your feed, adjacent houses, the taste readout — reads from this. You can change it any time.</p>
+
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:12px">Labels · {{ followCount }} chosen</div>
+<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:34px">
+<sc-for list="{{ onboardLabels }}" as="l" hint-placeholder-count="15">
+<button onClick="{{ l.onToggle }}" style="border:1px solid {{ l.border }};background:none;font:inherit;font-size:13.5px;padding:9px 15px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ l.color }}">{{ l.name }}</button>
+</sc-for>
+</div>
+
+<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a857c;margin-bottom:12px">Bring your saves</div>
+<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:34px">
+<sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
+<button onClick="{{ s.onToggle }}" style="border:1px solid #e6e3dd;background:none;font:inherit;font-size:13.5px;padding:9px 15px;border-radius:999px;cursor:pointer;transition:all .3s;color: {{ s.color }}" style-hover="border-color:#14110b">{{ s.name }} · {{ s.action }}</button>
+</sc-for>
+</div>
+
+<div style="display:flex;gap:14px;align-items:center;padding-top:24px;border-top:1px solid #e6e3dd">
+<button onClick="{{ finishOnboard }}" style="border:none;background:#14110b;color:#fff;font:inherit;font-size:13.5px;letter-spacing:.06em;padding:15px 28px;cursor:pointer;transition:background .3s" style-hover="background:#8a3b2e">Open my feed</button>
+<button onClick="{{ finishOnboard }}" style="border:none;background:none;font:inherit;font-size:13.5px;color:#8a857c;cursor:pointer;padding:15px 4px">Skip for now</button>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const BRANDS = [
+  ["marnier","Marnier","Milan","luxury",8],["ivry","Ivry Maison","Paris","luxury",7],
+  ["celare","Celare","Florence","luxury",6],["lise","Lise & Fell","Antwerp","luxury",5],
+  ["nour","Nour Atelier","Beirut","luxury",8],
+  ["aubade","Aubade Atelier","Copenhagen","premium",6],["odette","Odette Rue","Paris","premium",7],
+  ["sable","Sable Hour","New York","premium",5],["maisonrelle","Maison Relle","Paris","premium",8],
+  ["pelle","Pelle Nord","Oslo","premium",6],
+  ["novak","Novak Studio","Berlin","contemporary",7],["terran","Terran","Lisbon","contemporary",9],
+  ["kestrel","Kestrel Cloth","London","contemporary",6],["holt","Holt & Vane","Stockholm","contemporary",6],
+  ["fenwick","Fenwick Grey","London","contemporary",5]
+];
+const SECTIONS = [
+  {key:"luxury",label:"Luxury Designer",no:"01",blurb:"Runway houses and couture ateliers.",range:"$800 — $4,000",min:800,max:4000},
+  {key:"premium",label:"Affordable Luxury",no:"02",blurb:"Considered materials, atelier finish, without the house markup.",range:"$300 — $900",min:300,max:900},
+  {key:"contemporary",label:"Contemporary",no:"03",blurb:"Independent studios and everyday staples worth owning.",range:"$80 — $350",min:80,max:350}
+];
+const TITLES = {
+  luxury:[["Tailored Gown","Jet","2450"],["Opera Coat","Camel","3890"],["Silk Faille Dress","Rust","1720"],["Beaded Slip","Champagne","2290"],["Hand-Pleated Maxi","Pearl","1960"],["Cashmere Cape","Fog","3140"]],
+  premium:[["Silk Slip Dress","Ivory","690"],["Satin Column Skirt","Plum","430"],["Bias Cut Midi","Noir","520"],["Velvet Blazer","Bordeaux","780"],["Wool Overcoat","Stone","640"],["Draped Halter","Ash","340"]],
+  contemporary:[["Wool Crew Knit","Oat","310"],["Wide Leg Denim","Indigo","285"],["Poplin Shirt","Chalk","190"],["Cotton Trouser","Bone","240"],["Ribbed Tank","Sand","120"],["Cropped Chore Jacket","Olive","265"]]
+};
+const ADJACENT = [
+  ["verre","Verre Atelier","Paris","luxury","hand-finished eveningwear"],
+  ["moreau","Moreau & Fils","Lyon","luxury","archival tailoring"],
+  ["saltvik","Saltvik","Gothenburg","premium","northern minimalism"],
+  ["cassis","Cassis Rue","Marseille","premium","bias-cut silks"],
+  ["orla","Orla Fen","Dublin","premium","hand-loomed wool"],
+  ["brume","Brume","Ghent","contemporary","washed cottons"],
+  ["kolt","Kolt Supply","Manchester","contemporary","workwear cuts"],
+  ["nara","Nara Basics","Kyoto","contemporary","everyday knits"]
+];
+const META = {
+  marnier:["Giulia Marnier","1998","Milan","Tailoring inherited from her father's workroom, cut for women who dress themselves."],
+  ivry:["Camille Ivry","2004","Paris","Eveningwear built like couture, sold like ready-to-wear."],
+  celare:["Tomas Celare","2011","Florence","Leather and silk, one atelier, forty pieces a season."],
+  lise:["Lise Fell","2016","Antwerp","Deconstruction without the theatre — Antwerp discipline, softened."],
+  nour:["Nour Haddad","2009","Beirut","Hand-beading from a studio of eleven women; nothing is machine-finished."],
+  aubade:["Ingrid Sørensen","2018","Copenhagen","Slips and column skirts in a palette of six colours, never more."],
+  odette:["Odette Rue","2013","Paris","The bias cut as a house signature — one dress, revised every season."],
+  sable:["Nina Sable","2019","New York","Evening pieces you can wear to work the next morning."],
+  maisonrelle:["Hélène Relle","2007","Paris","Wool, silk, cotton. No blends, no seasons, no sales."],
+  pelle:["Even Pelle","2015","Oslo","Outerwear engineered for the fjord, tailored for the city."],
+  novak:["Ana Novak","2017","Berlin","Knitwear developed on domestic machines, still made that way."],
+  terran:["Rui Terran","2012","Lisbon","Cotton grown, milled, and cut within 200km."],
+  kestrel:["Joan Kestrel","2020","London","Shirting as the whole business — one product, done exactly."],
+  holt:["Holt & Vane","2014","Stockholm","Trousers first; everything else exists to go with them."],
+  fenwick:["Ada Fenwick","2021","London","Charity-shop silhouettes, remade in deadstock."]
+};
+const SEASONS = ["Autumn/Winter 26","Spring/Summer 26","Autumn/Winter 25","Archive"];
+const VARIANTS = ["Cropped","Longline","Panelled","Double-Faced","Raw-Edge","Fluted","Gathered","Boxy","Curved","Sheer","Quilted","Bonded","Twisted","Deconstructed","Half-Placket"];
+const OCC = [["casual","Casual"],["work","Work"],["datenight","Date Night"],["weekend","Weekend"],
+  ["travel","Travel"],["events","Events"],["wedding","Wedding guest"],["home","At home"]];
+const SIZES = ["XS","S","M","L","XL"];
+const RATIOS = ["3/4","4/5","1/1","3/4","4/5","3/4"];
+
+function buildCatalogue(){
+  const buckets=[[],[],[]], all=[];
+  BRANDS.forEach((b,bi)=>{
+    const sec = SECTIONS.find(s=>s.key===b[3]);
+    const pool = TITLES[b[3]];
+    for(let k=0;k<9;k++){
+      const t = pool[(bi*3+k*5)%pool.length];
+      const base = parseInt(t[2],10);
+      let price = Math.round(base*(0.82+((bi*7+k*3)%9)/20)/5)*5;
+      price = Math.min(sec.max, Math.max(sec.min, price));
+      const variant = VARIANTS[(bi*2+k)%VARIANTS.length];
+      const drop = (bi+k)%7===0;
+      const item = {
+        id: b[0]+"-"+k, brand:b[0], brandName:b[1], tierKey:b[3], tier:sec.label,
+        title: t[0].indexOf(variant)===0 ? t[0] : variant+" "+t[0],
+        color: t[1], priceNum: price, price:"$"+price.toLocaleString(),
+        occKey: OCC[(bi*2+k*3)%OCC.length][0], occ: OCC[(bi*2+k*3)%OCC.length][1],
+        ratio: RATIOS[(bi+k)%RATIOS.length],
+        isNew: (bi+k)%3===0, drop,
+        sizesOut: [(bi+k)%5]
+      };
+      buckets[(bi+k)%3].push(item); all.push(item);
+    }
+  });
+  const feed=[];
+  for(let i=0;i<45;i++) buckets.forEach(bk=>{ if(bk[i]) feed.push(bk[i]); });
+  return {feed: feed.slice(0,54), all, byId: all.reduce((m,i)=>{m[i.id]=i;return m;},{})};
+}
+const CAT = buildCatalogue();
+
+const RAW_CLIPS = [
+  {kind:"piece",title:"Silk Slip Dress",brandName:"Odette Rue",meta:"$690",ratio:"3/4"},
+  {kind:"inspo",title:"Layering — slip over tee",brandName:"@studio.noir",meta:"Instagram",ratio:"4/5"},
+  {kind:"piece",title:"Opera Coat",brandName:"Marnier",meta:"$3,890",ratio:"4/5"},
+  {kind:"inspo",title:"Autumn palette board",brandName:"Pinterest / Quiet",meta:"Pinterest",ratio:"1/1"},
+  {kind:"piece",title:"Wool Crew Knit",brandName:"Novak Studio",meta:"$310",ratio:"1/1"},
+  {kind:"inspo",title:"Street — belted coat",brandName:"@copenhagen.eye",meta:"Instagram",ratio:"3/4"},
+  {kind:"piece",title:"Bias Cut Midi",brandName:"Sable Hour",meta:"$520",ratio:"3/4"},
+  {kind:"inspo",title:"Shoe shapes for autumn",brandName:"Pinterest / Feet first",meta:"Pinterest",ratio:"4/5"},
+  {kind:"inspo",title:"Grandpa knit, sharp trouser",brandName:"@lise.archive",meta:"Instagram",ratio:"3/4"},
+  {kind:"piece",title:"Beaded Slip",brandName:"Ivry Maison",meta:"$2,290",ratio:"3/4"}
+];
+function brandLookTitle(name, no){
+  const notes = ["Opening look","Wool, doubled","The house slip","Tailoring, undone","Evening, early","Coat over nothing","Bias and weight","Second skin","Quiet finale"];
+  return notes[(parseInt(no,10)-1) % notes.length];
+}
+const DEFAULT_BOARDS = [{key:"september",name:"September"},{key:"silhouettes",name:"Silhouettes"},{key:"wedding",name:"Wedding guest"}];
+
+class Component extends DCLogic {
+  state = { pins:{}, follows:{}, hover:null, view:"new", boards:DEFAULT_BOARDS, activeBoard:"september",
+    followedOnly:false, filterTier:null, filterOcc:null, filterLabel:null, labelQuery:"",
+    selected:null, tagging:null, clipTags:{}, dismissed:{}, connections:{}, clipFilter:"all",
+    newBoardName:"", onboarding:false, sinceIndex:9 };
+
+  componentDidMount(){
+    let onboarded = false;
+    try {
+      const st = JSON.parse(localStorage.getItem("edit.state")||"{}");
+      onboarded = !!localStorage.getItem("edit.onboarded");
+      this.setState({
+        pins: st.pins||{}, pinOrder: st.pinOrder||[], follows: st.follows||{}, boards: st.boards||DEFAULT_BOARDS,
+        activeBoard: st.activeBoard||"september", dismissed: st.dismissed||{}, connections: st.connections||{},
+        clipTags: st.clipTags||{}, onboarding: !onboarded
+      });
+    } catch(e){ this.setState({onboarding:true}); }
+    this.keyNav = e=>{
+      if (this.state.view!=="brand" || !this.state.brandKey) return;
+      const tag = (e.target.tagName||"").toLowerCase();
+      if (tag==="input"||tag==="textarea") return;
+      const total = CAT.all.filter(i=>i.brand===this.state.brandKey).length;
+      if (e.key==="ArrowRight") this.setState(st=>({look:((st.look||0)+1)%total}));
+      if (e.key==="ArrowLeft") this.setState(st=>({look:((st.look||0)-1+total)%total}));
+    };
+    window.addEventListener("keydown", this.keyNav);
+    this.mm = e=>{ this.mx=e.clientX; this.my=e.clientY; };
+    this.over = e=>{ const row = e.target.closest ? e.target.closest("[data-idx-row]") : null;
+      const key = row ? row.getAttribute("data-idx-row") : null;
+      if (key !== this.state.hover) this.setState({hover:key}); };
+    window.addEventListener("mousemove", this.mm);
+    window.addEventListener("mouseover", this.over);
+    this.x=0;this.y=0;this.mx=0;this.my=0;
+    const loop=()=>{ this.x+=(this.mx-this.x)*.12; this.y+=(this.my-this.y)*.12;
+      if(this.prevEl) this.prevEl.style.transform=`translate3d(${this.x+26}px,${this.y-135}px,0)`;
+      this.raf=requestAnimationFrame(loop); };
+    loop();
+  }
+  componentWillUnmount(){ cancelAnimationFrame(this.raf); window.removeEventListener("keydown", this.keyNav);
+    window.removeEventListener("mousemove",this.mm); window.removeEventListener("mouseover",this.over); }
+
+  persist(patch){
+    this.setState(patch, ()=>{
+      const s=this.state;
+      try{ localStorage.setItem("edit.state", JSON.stringify({pins:s.pins,pinOrder:s.pinOrder,follows:s.follows,boards:s.boards,
+        activeBoard:s.activeBoard,dismissed:s.dismissed,connections:s.connections,clipTags:s.clipTags})); }catch(e){}
+    });
+  }
+  openBrand(key){
+    this.setState({view:"brand", brandKey:key, look:0, season:SEASONS[0], selected:null});
+    window.scrollTo({top:0});
+  }
+  jump(id){
+    const go=()=>{ const el=document.getElementById(id); if(!el) return;
+      window.scrollTo({top: el.getBoundingClientRect().top+window.scrollY-84, behavior:"smooth"}); };
+    if (this.state.view!=="almanac") this.setState({view:"almanac"}, ()=>setTimeout(go,60)); else go();
+  }
+  togglePin(id, board){
+    const b = board || this.state.activeBoard;
+    const pins = {...this.state.pins};
+    let order = (this.state.pinOrder||[]).filter(x=>x!==id);
+    if (pins[id] && (!board || pins[id]===b)) delete pins[id]; else { pins[id]=b; order = [id].concat(order); }
+    this.persist({pins, pinOrder:order});
+  }
+  toggleFollow(key){
+    const follows={...this.state.follows};
+    if(follows[key]) delete follows[key]; else follows[key]=1;
+    this.persist({follows});
+  }
+
+  renderVals(){
+    const s = this.state, pins = s.pins, follows = s.follows;
+    const nav = v => s.view===v ? "#14110b" : "#a8a49c";
+    const boards = s.boards;
+    const decorate = it => ({...it,
+      flag: it.drop ? "Price drop" : (it.isNew ? "New" : ""),
+      flagColor: it.drop ? "#8a3b2e" : "#8a857c",
+      flagBg: (it.drop||it.isNew) ? "rgba(255,255,255,.92)" : "none",
+      flagPad: (it.drop||it.isNew) ? "4px 8px" : "0",
+      pinColor: pins[it.id] ? "#8a3b2e" : "#d6d2ca",
+      onPin: e=>{ if(e && e.stopPropagation) e.stopPropagation(); this.togglePin(it.id); },
+      onOpen: ()=>this.setState({selected:it.id}),
+      onKey: e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); this.setState({selected:it.id}); } }
+    });
+
+    let feed = CAT.feed.slice();
+    if (s.followedOnly) feed = feed.filter(i=>follows[i.brand]);
+    if (s.filterTier) feed = feed.filter(i=>i.tierKey===s.filterTier);
+    if (s.filterOcc) feed = feed.filter(i=>i.occKey===s.filterOcc);
+    if (s.filterLabel) feed = feed.filter(i=>i.brand===s.filterLabel);
+    const feedD = feed.map(decorate);
+    const sinceN = Math.min(s.sinceIndex, feedD.length);
+
+    const activeFilters = [];
+    if (s.filterTier) activeFilters.push({label:(SECTIONS.find(x=>x.key===s.filterTier)||{}).label, onClear:()=>this.setState({filterTier:null})});
+    if (s.filterOcc) activeFilters.push({label:(OCC.find(o=>o[0]===s.filterOcc)||[])[1], onClear:()=>this.setState({filterOcc:null})});
+    if (s.filterLabel) activeFilters.push({label:(BRANDS.find(b=>b[0]===s.filterLabel)||[])[1], onClear:()=>this.setState({filterLabel:null})});
+
+    let n=0;
+    const groups = SECTIONS.map(sec=>({
+      no:sec.no, label:sec.label, range:sec.range, blurb:sec.blurb,
+      onJump: ()=>this.jump("tier-"+sec.key),
+      rows: BRANDS.filter(b=>b[3]===sec.key).map(b=>{ n++; return {
+        key:b[0], no:String(n).padStart(2,"0"), name:b[1], city:b[2], count:b[4],
+        followColor: follows[b[0]] ? "#8a3b2e" : "#a8a49c",
+        onJump: ()=>this.openBrand(b[0]),
+        onKey: e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); this.openBrand(b[0]); } }
+      };})
+    }));
+
+    const fb = BRANDS[1];
+    const featured = { key:fb[0], name:fb[1], city:fb[2], founder:(META[fb[0]]||[])[0], founded:(META[fb[0]]||[])[1],
+      story:(META[fb[0]]||[])[3], tier:(SECTIONS.find(x=>x.key===fb[3])||{}).label,
+      onOpen: ()=>this.openBrand(fb[0]) };
+    const houseEssays = BRANDS.slice(0,6).map(b=>{ const m=META[b[0]]||[];
+      return { key:b[0], name:b[1], city:b[2], founder:m[0], founded:m[1], story:m[3],
+        tier:(SECTIONS.find(x=>x.key===b[3])||{}).label, onOpen: ()=>this.openBrand(b[0]) }; });
+    const houses = BRANDS.map(b=>({ key:b[0], name:b[1], count:b[4]+" pieces", onOpen: ()=>this.openBrand(b[0]),
+      followLabel: follows[b[0]]?"Following":"Follow",
+      followColor: follows[b[0]]?"#8a3b2e":"#8a857c",
+      onFollow: ()=>this.toggleFollow(b[0]) }));
+
+    const chapters = SECTIONS.map(sec=>({
+      key:sec.key, no:sec.no, label:sec.label, blurb:sec.blurb, range:sec.range,
+      items: CAT.feed.filter(i=>i.tierKey===sec.key).slice(0,6).map(decorate)
+    }));
+
+    const followedBrands = BRANDS.filter(b=>follows[b[0]]);
+    const tierScore={}; followedBrands.forEach(b=>{ tierScore[b[3]]=(tierScore[b[3]]||0)+1; });
+    const suggestions = ADJACENT.filter(a=>!s.dismissed[a[0]]).map(a=>{
+      const cityMatch = followedBrands.find(b=>b[2]===a[2]);
+      const tierMatch = followedBrands.filter(b=>b[3]===a[3]);
+      const score=(tierScore[a[3]]||0)*2+(cityMatch?3:0);
+      const reason = cityMatch ? "Because you follow "+cityMatch[1]+" · also "+a[2]
+        : tierMatch.length ? "Because you follow "+tierMatch[0][1]+" · same tier"
+        : "Editor's pick · "+(SECTIONS.find(x=>x.key===a[3])||{}).label;
+      return { key:a[0], name:a[1], city:a[2], note:a[4], reason, score,
+        tier:(SECTIONS.find(x=>x.key===a[3])||{}).label,
+        followLabel: follows[a[0]]?"Following":"Follow",
+        followColor: follows[a[0]]?"#8a3b2e":"#8a857c",
+        onFollow: ()=>this.toggleFollow(a[0]),
+        onDismiss: ()=>this.persist({dismissed:{...s.dismissed,[a[0]]:1}}) };
+    }).sort((x,y)=>y.score-x.score).slice(0,4);
+
+    const pinIds = Object.keys(pins).filter(id=>CAT.byId[id]);
+    const boardList = boards.map(b=>({ name:b.name, count: pinIds.filter(id=>pins[id]===b.key).length,
+      color: s.activeBoard===b.key ? "#14110b" : "#a8a49c",
+      onPick: ()=>this.persist({activeBoard:b.key}) }));
+    const boardPinItems = pinIds.filter(id=>pins[id]===s.activeBoard).map(id=>CAT.byId[id]);
+    const boardPins = boardPinItems.map(it=>({ ...it,
+      onOpen: ()=>this.setState({selected:it.id}),
+      onUnpin: e=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.togglePin(it.id); } }));
+    const boardTotal = boardPinItems.reduce((t,i)=>t+i.priceNum,0);
+    const activeBoardObj = boards.find(b=>b.key===s.activeBoard) || boards[0] || {name:"Board"};
+
+    const tierCounts={};
+    pinIds.forEach(id=>{ const t=CAT.byId[id].tierKey; tierCounts[t]=(tierCounts[t]||0)+1; });
+    const topTier = Object.keys(tierCounts).sort((a,b)=>tierCounts[b]-tierCounts[a])[0];
+    const topColor = pinIds.length ? CAT.byId[pinIds[0]].color : null;
+    const eyeReadout = pinIds.length
+      ? "Leaning "+(SECTIONS.find(x=>x.key===topTier)||{}).label+" — "+topColor.toLowerCase()+" recurring, and a slip silhouette you keep returning to."
+      : "Nothing pinned yet. Clip a few pieces and your eye starts to show itself here.";
+    const eyeChips = pinIds.length ? [
+      {label:(SECTIONS.find(x=>x.key===topTier)||{}).label, onApply:()=>this.setState({view:"new",filterTier:topTier})},
+      {label:"like "+CAT.byId[pinIds[0]].occ, onApply:()=>this.setState({view:"new",filterOcc:CAT.byId[pinIds[0]].occKey})}
+    ] : [];
+
+    const order = s.pinOrder||[];
+    const orderedPinIds = Object.keys(pins).filter(id=>CAT.byId[id])
+      .sort((a,b)=>{ const ia=order.indexOf(a), ib=order.indexOf(b);
+        return (ia<0?9999:ia)-(ib<0?9999:ib); });
+    const pinnedClips = orderedPinIds.map(id=>{
+      const it = CAT.byId[id];
+      const board = (boards.find(b=>b.key===pins[id])||{}).name || "Board";
+      return { kind:"piece", title:it.title, brandName:it.brandName, meta:it.price, ratio:it.ratio,
+        badge:"Pinned · "+board, badgeColor:"#8a3b2e", metaColor:"#14110b",
+        tagLabel:"Open piece ↗", tagColor:"#8a3b2e", onTag: ()=>this.setState({selected:id}) };
+    });
+    const sourceClips = RAW_CLIPS.filter(c=>{
+      if (c.kind!=="inspo") return true;
+      if (c.meta==="Instagram") return !!s.connections.instagram;
+      if (c.meta==="Pinterest") return !!s.connections.pinterest;
+      return true;
+    });
+    const clips = pinnedClips.concat(sourceClips.map((c,i)=>{
+      const tagged = s.clipTags[i] ? CAT.byId[s.clipTags[i]] : null;
+      return {...c,
+        badge: c.kind==="piece" ? "Shop ↗" : (c.meta==="Instagram" ? "IG" : "Pin"),
+        badgeColor: c.kind==="piece" ? "#8a3b2e" : "#8a857c",
+        metaColor: c.kind==="piece" ? "#14110b" : "#a8a49c",
+        tagLabel: c.kind==="piece" ? "Shop this ↗" : (tagged ? tagged.brandName+" · "+tagged.title+" ↗" : "Tag a piece +"),
+        tagColor: (c.kind==="piece"||tagged) ? "#8a3b2e" : "#8a857c",
+        onTag: ()=>{ if(c.kind==="piece") return; this.setState({tagging:i}); }
+      };
+    }));
+    const cf = s.clipFilter;
+    const visibleClips = cf==="all" ? clips : clips.filter(c=>c.kind===(cf==="shop"?"piece":"inspo"));
+    const cfc = v => cf===v ? "#14110b" : "#a8a49c";
+
+    const sources = [["instagram","Instagram","@you — saved posts"],["pinterest","Pinterest","4 boards"],["camera","Camera roll","fits & fitting-room shots"]]
+      .map(x=>({ name:x[1], detail: s.connections[x[0]] ? x[2]+" · syncing" : x[2],
+        action: s.connections[x[0]] ? "Linked" : "Connect",
+        color: s.connections[x[0]] ? "#8a3b2e" : "#8a857c",
+        onToggle: ()=>{ const c={...s.connections}; if(c[x[0]]) delete c[x[0]]; else c[x[0]]=1; this.persist({connections:c}); } }));
+
+    const bk = s.brandKey;
+    const bRow = bk ? BRANDS.find(b=>b[0]===bk) : null;
+    let brand = {};
+    if (bRow) {
+      const m = META[bk] || ["—","—",bRow[2],""];
+      const own = CAT.all.filter(i=>i.brand===bk);
+      const seasonOffset = SEASONS.indexOf(s.season||SEASONS[0]);
+      const looks = Array.from({length:own.length},(_,i)=>{
+        const pick = [own[i], own[(i+2+seasonOffset)%own.length], own[(i+5+seasonOffset)%own.length]]
+          .filter(Boolean).filter((p,ix,arr)=>arr.indexOf(p)===ix);
+        return { no:String(i+1).padStart(2,"0"), pieces: pick.slice(0, 2 + ((i+seasonOffset)%2)) };
+      });
+      const li = Math.min(s.look||0, looks.length-1);
+      const cur = looks[li];
+      brand = {
+        key:bk, name:bRow[1], city:bRow[2], tier:(SECTIONS.find(x=>x.key===bRow[3])||{}).label,
+        founder:m[0], founded:m[1], story:m[3], pieceCount:bRow[4]+" pieces followed",
+        followLabel: follows[bk]?"Following":"Follow this house",
+        followColor: follows[bk]?"#8a3b2e":"#14110b",
+        onFollow: ()=>this.toggleFollow(bk),
+        seasons: SEASONS.map(sn=>({label:sn, color: (s.season||SEASONS[0])===sn ? "#14110b" : "#a8a49c",
+          onPick: ()=>this.setState({season:sn, look:0})})),
+        seasonLabel: s.season||SEASONS[0],
+        lookNo: cur.no, lookCount: String(looks.length).padStart(2,"0"),
+        lookTitle: brandLookTitle(bRow[1], cur.no),
+        pieces: cur.pieces.map(p=>({...p,
+          pinColor: pins[p.id] ? "#8a3b2e" : "#d6d2ca",
+          onPin: e=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.togglePin(p.id); },
+          onOpen: ()=>this.setState({selected:p.id})})),
+        thumbs: looks.map((lk,i)=>({no:lk.no, border: i===li ? "#14110b" : "#e6e3dd",
+          onPick: ()=>this.setState({look:i})})),
+        prev: ()=>this.setState({look: (li-1+looks.length)%looks.length}),
+        next: ()=>this.setState({look: (li+1)%looks.length}),
+        onKey: e=>{ if(e.key==="ArrowRight") this.setState({look:(li+1)%looks.length});
+                    if(e.key==="ArrowLeft") this.setState({look:(li-1+looks.length)%looks.length}); }
+      };
+    }
+    const sel = s.selected ? CAT.byId[s.selected] : null;
+    const selected = sel ? {...sel,
+      flagNote: sel.drop ? "Price dropped this week" : (sel.isNew ? "New this week" : ""),
+      sizes: SIZES.map((z,i)=>({label:z, color: sel.sizesOut.indexOf(i)>=0 ? "#d6d2ca" : "#14110b"})),
+      boards: boards.map(b=>({ name:b.name, color: pins[sel.id]===b.key ? "#8a3b2e" : "#8a857c",
+        onPin: ()=>this.togglePin(sel.id, b.key) })),
+      retailers: [
+        {name: sel.brandName, note:"Direct · ships in 3 days", price: sel.price},
+        {name:"Mode Atelier", note:"2 sizes left", price:"$"+Math.round(sel.priceNum*1.05).toLocaleString()},
+        {name:"The Reserve", note:"Pre-owned · very good", price:"$"+Math.round(sel.priceNum*0.62).toLocaleString()}
+      ]
+    } : {};
+
+    const monthCells = Array.from({length:31}, (_,i)=>{
+      const d=i+1, active=[1,4,7,9,11,12].indexOf(d)>=0;
+      return { title:"Aug "+d, bg: d===12 ? "#8a3b2e" : (active ? "#d8d2c6" : "#f2efe9") };
+    });
+
+    const wishlist = boardPinItems.slice(0,4).map(i=>({title:i.title, brandName:i.brandName, price:i.price}));
+    const wishTotal = "$"+wishlist.reduce((t,w)=>t+parseInt(w.price.replace(/[^0-9]/g,""),10),0).toLocaleString();
+
+    return {
+      preview: React.createElement("div", { ref: el=>this.prevEl=el, style:{position:"fixed",top:0,left:0,width:"210px",height:"270px",
+        pointerEvents:"none",zIndex:80, opacity: s.hover?1:0, transition:"opacity .45s cubic-bezier(.19,1,.22,1)",
+        background:"repeating-linear-gradient(135deg,#efede8,#efede8 9px,#f6f4f0 9px,#f6f4f0 18px)",
+        display:"flex",alignItems:"flex-end",padding:"12px",boxSizing:"border-box",
+        font:"10.5px ui-monospace,Menlo,monospace",color:"#8a857c",letterSpacing:".08em"} },
+        s.hover ? (BRANDS.find(b=>b[0]===s.hover)||ADJACENT.find(a=>a[0]===s.hover)||[])[1] || "" : ""),
+
+      isNew: s.view==="new", isBoards: s.view==="boards", isDiary: s.view==="diary", isAlmanac: s.view==="almanac",
+      navNew: nav("new"), navBoards: nav("boards"), navDiary: nav("diary"), navAlmanac: nav("almanac"),
+      goNew: ()=>this.setState({view:"new"}), goBoards: ()=>this.setState({view:"boards"}),
+      goDiary: ()=>this.setState({view:"diary"}), goAlmanac: ()=>this.setState({view:"almanac"}),
+
+      feedSince: feedD.slice(0,sinceN), feedRest: feedD.slice(sinceN),
+      hasSinceLast: sinceN>0, sinceCount: sinceN, feedEmpty: feedD.length===0,
+      feedSummary: (s.followedOnly ? feedD.length+" pieces from labels you follow" : feedD.length+" pieces across "+BRANDS.length+" labels"),
+      followedOnly: s.followedOnly,
+      followedOnlyBg: s.followedOnly ? "#faf3f1" : "none",
+      followedOnlyColor: s.followedOnly ? "#8a3b2e" : "#8a857c",
+      toggleFollowedOnly: ()=>this.setState({followedOnly:!s.followedOnly}),
+      clearFilters: ()=>this.setState({followedOnly:false,filterTier:null,filterOcc:null,filterLabel:null,labelQuery:""}),
+      activeFilters, hasActiveFilters: activeFilters.length>0,
+
+      occasionFilters: [{label:"Everything",key:null}].concat(OCC.map(o=>({label:o[1],key:o[0]}))).map(o=>({
+        label:o.label, color: s.filterOcc===o.key ? "#8a3b2e" : "#14110b",
+        onPick: ()=>this.setState({filterOcc:o.key}) })),
+      tierFilters: [{label:"All tiers",key:null,range:""}].concat(SECTIONS.map(x=>({label:x.label,key:x.key,range:x.range}))).map(t=>({
+        label:t.label, range:t.range, color: s.filterTier===t.key ? "#8a3b2e" : "#14110b",
+        onPick: ()=>this.setState({filterTier:t.key}) })),
+      labelQuery: s.labelQuery,
+      onLabelQuery: e=>this.setState({labelQuery:e.target.value}),
+      labelList: BRANDS.filter(b=>b[1].toLowerCase().indexOf((s.labelQuery||"").toLowerCase())>=0).map(b=>({
+        key:b[0], name:b[1],
+        color: s.filterLabel===b[0] ? "#8a3b2e" : (follows[b[0]] ? "#8a3b2e" : "#14110b"),
+        onPick: ()=>this.setState({filterLabel: s.filterLabel===b[0] ? null : b[0]}) })),
+
+      boardList, boardPins, boardEmpty: boardPins.length===0,
+      activeBoardName: activeBoardObj.name,
+      activeBoardSummary: boardPins.length+" pins · pinning here by default",
+      activeBoardTotal: boardTotal ? "$"+boardTotal.toLocaleString()+" if you bought it all" : "",
+      newBoardName: s.newBoardName,
+      onNewBoardName: e=>this.setState({newBoardName:e.target.value}),
+      addBoard: ()=>{ const nm=(s.newBoardName||"").trim(); if(!nm) return;
+        const key = nm.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+        this.persist({boards:[...boards,{key,name:nm}], activeBoard:key, newBoardName:""}); },
+
+      groups, houses, chapters, suggestions,
+      discoverNote: followedBrands.length
+        ? "Drawn from the "+followedBrands.length+" labels you follow — tier, city and cut."
+        : "Follow a few houses and this rail re-reads itself. For now, editor's picks.",
+
+      entries: [{date:"12 Aug",tag:"today",color:"#8a3b2e"},{date:"11 Aug",tag:"3 clips",color:"#14110b"},
+        {date:"09 Aug",tag:"note",color:"#14110b"},{date:"07 Aug",tag:"6 clips",color:"#14110b"},
+        {date:"04 Aug",tag:"bought",color:"#14110b"},{date:"01 Aug",tag:"note",color:"#14110b"}],
+      monthCells,
+      activityLine: "Today so far — "+pinIds.length+" pinned · "+Object.keys(follows).length+" labels followed · "+sourceClips.filter(c=>c.kind==="inspo").length+" inspo saves synced",
+      moodTags: ["Quiet luxury","Plum","For September","Slip silhouette","Saving for"],
+      visibleClips, fAll:cfc("all"), fShop:cfc("shop"), fInspo:cfc("inspo"),
+      filtAll: ()=>this.setState({clipFilter:"all"}), filtShop: ()=>this.setState({clipFilter:"shop"}),
+      filtInspo: ()=>this.setState({clipFilter:"inspo"}),
+      sources, eyeReadout, eyeChips, wishlist, wishTotal,
+
+      isBrand: s.view==="brand", brand,
+      backToAlmanac: ()=>this.setState({view:"almanac"}),
+      featured, houseEssays,
+      hasSelected: !!sel, selected, closeItem: ()=>this.setState({selected:null}),
+      findSimilar: ()=>this.setState({view:"new", filterTier: sel?sel.tierKey:null, selected:null}),
+
+      tagging: s.tagging!==null && s.tagging!==undefined,
+      closeTagging: ()=>this.setState({tagging:null}),
+      taggableItems: CAT.feed.slice(0,12).map(it=>({ brandName:it.brandName, title:it.title, price:it.price,
+        onPick: ()=>{ const pins2={...pins}; if(!pins2[it.id]) pins2[it.id]=s.activeBoard;
+          const order=[it.id].concat((s.pinOrder||[]).filter(x=>x!==it.id));
+          this.persist({clipTags:{...s.clipTags,[s.tagging]:it.id}, tagging:null, pins:pins2, pinOrder:order}); } })),
+
+      onboarding: s.onboarding, openOnboard: ()=>this.setState({onboarding:true}),
+      onboardLabels: BRANDS.map(b=>({ name:b[1],
+        color: follows[b[0]] ? "#8a3b2e" : "#14110b",
+        border: follows[b[0]] ? "#8a3b2e" : "#e6e3dd",
+        onToggle: ()=>this.toggleFollow(b[0]) })),
+      finishOnboard: ()=>{ try{ localStorage.setItem("edit.onboarded","1"); }catch(e){}
+        this.setState({onboarding:false, view:"new"}); },
+
+      pinnedCount: pinIds.length, followCount: Object.keys(follows).length,
+      brandCount: BRANDS.length, feedCount: CAT.feed.length,
+      tasteLine: pinIds.length ? "Leaning "+(SECTIONS.find(x=>x.key===topTier)||{}).label : "No pins yet"
+    };
+  }
+}
+
+</script>
+</body>
+</html>

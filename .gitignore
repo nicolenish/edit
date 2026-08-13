@@ -1,0 +1,19 @@
+# Python / Django
+.venv/
+__pycache__/
+*.pyc
+db.sqlite3
+.env
+
+# Node / Vite
+edit-web/node_modules/
+edit-web/dist/
+node_modules/
+
+# personal data (your raw Instagram following export)
+following.json
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
