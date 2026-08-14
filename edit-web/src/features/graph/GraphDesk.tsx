@@ -753,9 +753,6 @@ export default function GraphDesk() {
                   })}
                 </div>
               )}
-              <button onClick={() => zoom(1 / 1.15)} style={iconBtn}>−</button>
-              <button onClick={() => zoom(1.15)} style={iconBtn}>+</button>
-              <button onClick={() => fit()} style={{ ...iconBtn, width: 'auto', padding: '6px 12px', letterSpacing: '.14em' }}>Recentre</button>
             </div>
           </div>
 
@@ -853,6 +850,13 @@ export default function GraphDesk() {
                   <LegendRow color={LINE_REGION} dotted label="Kindred · where founded" />
                   <LegendRow color={LINE_PRICE} dotted label="Kindred · price point" />
                 </>}
+              </div>
+
+              {/* zoom / recentre — floating at the canvas's lower-right, above the capture bar */}
+              <div style={{ position: 'absolute', right: 14, bottom: 14, zIndex: 5, display: 'flex', gap: 6 }}>
+                <button onClick={() => zoom(1 / 1.15)} style={{ ...iconBtn, background: 'rgba(251,250,248,.92)' }}>−</button>
+                <button onClick={() => zoom(1.15)} style={{ ...iconBtn, background: 'rgba(251,250,248,.92)' }}>+</button>
+                <button onClick={() => fit()} style={{ ...iconBtn, background: 'rgba(251,250,248,.92)', width: 'auto', padding: '6px 12px', letterSpacing: '.14em' }}>Recentre</button>
               </div>
 
               {inBoard && !edgeEdit && (
@@ -1502,7 +1506,8 @@ function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: R
           <button onClick={() => toggle(k, v)} style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
         </span>
       )))}
-      <button onClick={() => { setPickerQ(''); setPicker((p) => !p) }} style={chip}>{activeKeys.length ? '＋' : 'All ▾'}</button>
+      <span style={{ position: 'relative', display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <button onClick={() => { setPickerQ(''); setPicker((p) => !p) }} style={chip}>{activeKeys.length ? (picker ? '−' : '＋') : 'All ▾'}</button>
       {activeKeys.length > 0 && <button onClick={() => onChange({})} style={{ ...chip, border: 'none', color: '#7d776b' }}>clear</button>}
       {activeKeys.length > 0 && !saving && <button onClick={() => { setSaving(true); setSaveName('') }} style={{ ...chip, border: 'none', color: ACCENT }}>save view</button>}
       {saving && (
@@ -1560,6 +1565,7 @@ function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: R
         </div>
         )
       })()}
+      </span>
     </div>
   )
 }
@@ -1819,7 +1825,7 @@ const railType: React.CSSProperties = { fontFamily: 'Newsreader, serif', fontSiz
 const railBtn: React.CSSProperties = { cursor: 'pointer', background: 'none', border: 'none', font: 'inherit', letterSpacing: '.14em', textTransform: 'uppercase', padding: 0 }
 const indexHead: React.CSSProperties = { display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 8, padding: '13px 13px 6px', fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.16em', textTransform: 'uppercase', color: ACCENT }
 const indexRow: React.CSSProperties = { width: '100%', cursor: 'pointer', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid rgba(20,19,16,.14)', padding: '7px 13px', display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 8, alignItems: 'baseline', transition: 'background .25s ease' }
-const iconBtn: React.CSSProperties = { cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', minWidth: 26, height: 26, font: 'inherit', fontSize: 13, textTransform: 'uppercase' }
+const iconBtn: React.CSSProperties = { cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', minWidth: 26, height: 26, font: 'inherit', fontSize: 13, textTransform: 'uppercase', color: '#45413a', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
 function lensBtn(active: boolean): React.CSSProperties {
   // active = solid black; inactive = outlined with muted text (keeps the button affordance)
   return { cursor: 'pointer', background: active ? INK : 'none', color: active ? '#fbfaf8' : '#7d776b', border: `1px solid ${active ? INK : 'rgba(20,19,16,.3)'}`, padding: '6px 12px', font: 'inherit', letterSpacing: '.14em', textTransform: 'uppercase' }

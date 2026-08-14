@@ -1,7 +1,7 @@
 // Data layer for the Graph Desk. USE_MOCK serves the collar-theory mock so the
 // desk works before the backend exists; flip it to false once catalog/graph.py +
 // /api/graph/ (docs §8) are live — the component code doesn't change.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import type { GraphResponse, NodeDetail, HouseStudy, BoardGraph, GraphList, GraphLenses } from './types'
 import { MOCK_GRAPH, MOCK_DETAILS } from './mock'
@@ -15,6 +15,9 @@ export const graphKeys = {
 
 export function useGraph(focus?: string | null, lens?: Record<string, string[]>, depth?: number) {
   return useQuery<GraphResponse>({
+    // keep the previous desk on screen while a lens/focus change loads — otherwise the whole
+    // view (and any open lens picker) would unmount to the loading state on every pick
+    placeholderData: keepPreviousData,
     queryKey: graphKeys.graph(focus, lens, depth),
     queryFn: async () => {
       if (USE_MOCK) return MOCK_GRAPH
