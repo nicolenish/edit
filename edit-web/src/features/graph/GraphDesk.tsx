@@ -650,9 +650,11 @@ export default function GraphDesk() {
   }, [followMut])
 
   const switchLens = useCallback((next: Lens) => {
+    // just flip the arrangement — the layout effect re-runs applyPositions when `lens` changes and
+    // re-lays-out (with the glide). NB: don't call applyPositions() from a timeout here — that closure
+    // captures the PREVIOUS lens and would re-apply the old arrangement on top, stacking the cards.
     setLens(next)
-    setTimeout(() => applyPositions(), 0)
-  }, [applyPositions])
+  }, [])
 
   // ── derived counts (backend truth) ──
   const followCount = graph?.stats.follows ?? 0
