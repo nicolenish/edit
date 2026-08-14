@@ -5,6 +5,7 @@ import type { GraphNode, GraphEdge, GraphNodeType, HouseStudy, IndexItem, ClipEd
 
 const STAGE_W = 2400
 const STAGE_H = 1600
+const NODE_TRANSITION = 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)'
 const KEY = 'nishi.desk.v1'
 const STRIPE = 'repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px)'
 const ACCENT = '#8f4331' // terracotta — UI accent (buttons, pins)
@@ -49,7 +50,7 @@ export default function GraphDesk() {
   const comparing = compareMode && focusIds.length >= 2   // ≥2 → the Venn renders
   // one pending compare pick keeps the full map (focusKey null) so the next pick is easy
   const focusKey = comparing ? focusIds.join(',') : (!compareMode && focusIds.length === 1 ? focusIds[0] : null)
-  const { data: graph, isLoading } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, comparing && sharedOnly)
+  const { data: graph, isLoading, isPlaceholderData } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, comparing && sharedOnly)
   // multi-focus is a fresh, transient view: it uses the server's Venn coords and neither reads
   // nor writes the saved arrangement, so poles can't snap back to old main-desk positions.
   const multiRef = useRef(false)
@@ -308,6 +309,25 @@ export default function GraphDesk() {
     return () => cancelAnimationFrame(id)
   }, [folded, applyPositions, fit])
 
+  // a focus/compare change (incl. the "only shared" toggle) swaps the node set. With
+  // keepPreviousData the desk holds the *old* layout while the new one loads, so we must
+  // reframe once the real data has arrived AND its new positions have been applied — otherwise
+  // fit() measures the stale layout and the smaller set ends up off-centre.
+  const focusSig = graph && focusKey ? `${focusKey}:${sharedOnly}:${graph.nodes.length}` : ''
+  useEffect(() => {
+    if (!focusSig || isPlaceholderData) return
+    const id = requestAnimationFrame(() => {
+      // Cards animate their `left`/`top`, so offsetLeft reports the mid-flight position — fit()
+      // would frame a moving target. Jump straight to the new layout (transition off), fit against
+      // the settled positions, then restore the animation for later drags/folds.
+      const els = Object.values(nodeRefs.current).filter((el): el is HTMLDivElement => !!el)
+      els.forEach((el) => { el.style.transition = 'none' })
+      applyPositions(); fit(); fitted.current = true
+      requestAnimationFrame(() => els.forEach((el) => { if (el.isConnected) el.style.transition = NODE_TRANSITION }))
+    })
+    return () => cancelAnimationFrame(id)
+  }, [focusSig, isPlaceholderData, applyPositions, fit])
+
   // wire pan / zoom / drag once the stage is mounted (graph view only)
   useEffect(() => {
     const stage = stageRef.current
@@ -421,7 +441,7 @@ export default function GraphDesk() {
       }
       if (mode === 'node' && el) {
         el.style.cursor = 'grab'
-        el.style.transition = 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)'
+        el.style.transition = NODE_TRANSITION
         dragged.current = moved > 4
         const nid = el.dataset.node!
         const hit = !inBoard && dragged.current && !nid.startsWith('board:') ? boardUnder(el) : null
@@ -1184,7 +1204,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   const base: React.CSSProperties = {
     position: 'absolute', width: cardWidth(node.type), cursor: 'grab', userSelect: 'none',
     padding: '11px 13px 13px', border: `1px solid ${INK}`,
-    transition: 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)',
+    transition: NODE_TRANSITION,
   }
   if (isPattern) Object.assign(base, { background: '#fff', color: INK, boxShadow: '3px 3px 0 rgba(20,19,16,.08)', outline: highlighted ? `1px solid ${ACCENT}` : 'none', outlineOffset: 4 })
   else if (isNote) Object.assign(base, { background: '#f2e6c9', boxShadow: '3px 3px 0 rgba(20,19,16,.1)' })
