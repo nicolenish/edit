@@ -442,39 +442,71 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
     # which anchors reach each node — anchors themselves are poles, never "shared"
     reached_by = {nid: [a for a in anchors if nid in per[a]] for nid in union}
 
+    # ── Venn layout: each region is a tidy, non-overlapping grid block. The shared cards sit in
+    # a block at the centre; each anchor + its exclusives form a block placed radially outward, so
+    # the whole thing reads as poles around a shared core without cards ever piling up (docs A2).
     n = len(anchors)
-    CX, CY, R = 980, 700, 560
+    CX, CY = 1200, 1000
+    CW = 250                    # cell width — clears the widest card (an image piece ~226)
+    CH_TALL, CH_SHORT = 292, 120  # a block of image pieces needs tall rows; kindred/houses are short
+    GAP = 190
 
-    def anchor_xy(i):
+    def cols_for(m):
+        return max(1, int(round((m / 3.0) ** 0.5)))   # portrait-ish blocks — keeps the desk compact
+
+    def row_h(ids):             # a block with any piece card needs the tall row so nothing overlaps
+        return CH_TALL if any(i.startswith(("piece:", "clip:")) for i in ids) else CH_SHORT
+
+    def block_half(ids):
+        m = len(ids)
+        if not m:
+            return 0.0, 0.0
+        cols = cols_for(m)
+        return cols * CW / 2, math.ceil(m / cols) * row_h(ids) / 2
+
+    def grid_at(ids, cx, cy):
+        """Positions for `ids` as a grid centred on (cx, cy)."""
+        m = len(ids)
+        if not m:
+            return {}
+        ch = row_h(ids); cols = cols_for(m)
+        x0 = cx - cols * CW / 2 + CW / 2
+        y0 = cy - math.ceil(m / cols) * ch / 2 + ch / 2
+        return {ids[i]: (x0 + (i % cols) * CW, y0 + (i // cols) * ch) for i in range(m)}
+
+    shared = sorted(m for m in union if m not in anchor_set and len(reached_by[m]) >= 2)
+    excl = {a: sorted(m for m in union if reached_by[m] == [a]) for a in anchors}
+    stray = sorted(m for m in union if m not in anchor_set and not reached_by[m])
+
+    pos = {}
+    s_hw, s_hh = block_half(shared)
+    pos.update(grid_at(shared, CX, CY))                    # shared core at the centre
+    regions = {a: [a] + excl[a] for a in anchors}          # each anchor leads its own block
+    region_half = {a: block_half(regions[a]) for a in anchors}
+    # with ≥3 poles, adjacent region blocks must also clear each other around the circle
+    reach = max((math.hypot(hw, hh) for hw, hh in region_half.values()), default=0.0)
+    ang_floor = (2 * reach + GAP) / (2 * math.sin(math.pi / n)) if n >= 3 else 0.0
+    for i, a in enumerate(anchors):                        # place each region radially outward
         ang = math.pi if (n <= 2 and i == 0) else (0.0 if n <= 2 else -math.pi / 2 + 2 * math.pi * i / n)
-        return (CX + R * math.cos(ang), CY + R * math.sin(ang))
+        r_hw, r_hh = region_half[a]
+        # clear the shared block along the radial direction (tall blocks don't push wide), then
+        # also honour the angular floor so neighbouring poles' blocks never collide
+        ext_s = abs(s_hw * math.cos(ang)) + abs(s_hh * math.sin(ang))
+        ext_r = abs(r_hw * math.cos(ang)) + abs(r_hh * math.sin(ang))
+        rr = max(ext_s + ext_r + GAP, ang_floor)
+        pos.update(grid_at(regions[a], CX + rr * math.cos(ang), CY + rr * math.sin(ang)))
+    for j, m in enumerate(stray):                          # anything unreached — tuck below
+        pos[m] = (CX - 300 + (j % 4) * CW, CY + s_hh + 460 + (j // 4) * CH_TALL)
 
-    apos = {a: anchor_xy(i) for i, a in enumerate(anchors)}
-    grp = defaultdict(int)   # running index within each placement group, for scatter
+    # shift everything positive so the desk frames cleanly from the top-left
+    if pos:
+        ox = 90 - min(p[0] for p in pos.values()); oy = 90 - min(p[1] for p in pos.values())
+        pos = {k: (x + ox, y + oy) for k, (x, y) in pos.items()}
 
-    # NB: multi-focus always lays out fresh — it deliberately ignores the desk's saved
-    # positions, or the poles would snap back to wherever a node last sat on the main map
-    # and the Venn would collapse. Drags are live but transient in this view.
+    # NB: multi-focus always lays out fresh — it ignores the desk's saved positions, or the
+    # Venn would collapse to wherever nodes last sat on the main map. Drags are live but transient.
     def place(nid, kind):
-        if nid in apos:
-            return list(apos[nid])
-        S = [a for a in reached_by.get(nid, []) if a in apos]
-        if not S:
-            k = grp["free"]; grp["free"] += 1
-            return _seed_xy(kind, k)
-        k = grp[",".join(sorted(S))]; grp[",".join(sorted(S))] += 1
-        ang = k * 2.3999   # golden angle → an even scatter without a grid
-        if len(S) == 1:               # exclusive: sit past the anchor, away from centre
-            ax, ay = apos[S[0]]
-            vx, vy = ax - CX, ay - CY
-            L = math.hypot(vx, vy) or 1.0
-            bx, by = ax + (vx / L) * 175, ay + (vy / L) * 175
-            rad = 65 + 30 * (k // 6)
-        else:                          # shared: centroid of its anchors, pulled inward
-            bx = sum(apos[a][0] for a in S) / len(S) * 0.62 + CX * 0.38
-            by = sum(apos[a][1] for a in S) / len(S) * 0.62 + CY * 0.38
-            rad = 55 + 26 * (k % 7)
-        return [bx + rad * math.cos(ang), by + rad * math.sin(ang)]
+        return list(pos.get(nid, _seed_xy(kind, 0)))
 
     nodes, mp, mh, mpat = _build_focus_nodes(union, place, by_product, brands_by_key, follow_date)
     edges = _build_focus_edges(nodes, mp, mh, mpat)

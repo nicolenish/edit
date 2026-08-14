@@ -41,14 +41,24 @@ Compare is fully mouse/trackpad-driven — no modifier key required:
   neighbors, show just what the anchors have in common. The power view for
   "why are these kin?"
 
-## Layout / physics
+## Layout
 
-- Anchors pinned as fixed poles, auto-spread (2 → left/right, 3 → triangle …).
-- Exclusive neighbors cluster around their own anchor.
-- Shared neighbors, linked to multiple anchors, settle between them.
+The desk has no live force sim — positions are seeded server-side — so the Venn is
+laid out deterministically as **tidy, non-overlapping grid regions**:
+
+- The **shared core** is a compact grid block at the centre (short cells — kindred
+  houses and patterns are small cards).
+- Each **anchor + its exclusives** form a grid block placed radially outward
+  (2 → left/right, 3 → triangle, up to 5). Piece-heavy blocks use tall cells so
+  image cards never overrun. The anchor leads its own block.
+- Block placement clears the shared core along the radial direction (so tall blocks
+  don't push the layout wide) and honours an angular floor so neighbouring poles'
+  blocks never collide. Cells are sized to the widest/tallest card → **zero overlap**,
+  and blocks are kept portrait-ish so the whole desk stays compact and fills the
+  frame rather than shrinking to a thin strip.
 - **Shared** nodes highlighted with the muted terracotta accent (outline + brought
   forward). Exclusive nodes stay normal, slightly receded. Anchors keep the house
-  style with a subtle anchor ring.
+  style with a heavier anchor ring.
 
 ## Decisions (recommended)
 

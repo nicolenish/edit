@@ -258,7 +258,7 @@ export default function GraphDesk() {
     })
     const pad = 44
     if (!isFinite(x0)) { x0 = 0; y0 = 0; x1 = STAGE_W; y1 = STAGE_H }
-    scale.current = Math.max(0.25, Math.min((w - pad * 2) / (x1 - x0), (h - pad * 2) / (y1 - y0), 1))
+    scale.current = Math.max(0.18, Math.min((w - pad * 2) / (x1 - x0), (h - pad * 2) / (y1 - y0), 1))
     tx.current = (w - (x1 - x0) * scale.current) / 2 - x0 * scale.current
     ty.current = (h - (y1 - y0) * scale.current) / 2 - y0 * scale.current
     applyTransform()
