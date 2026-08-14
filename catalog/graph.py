@@ -460,7 +460,7 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
     #                                         so the shared core (the point) isn't drowned by fans
 
     def cols_for(m):
-        return max(1, int(round((m / 4.5) ** 0.5)))   # portrait-ish blocks — keeps the desk narrow
+        return max(1, int(round((m / 2.0) ** 0.5)))   # squarish blocks → the desk spreads landscape
 
     def row_h(ids):             # a block with any piece card needs the tall row so nothing overlaps
         return CH_TALL if any(i.startswith(("piece:", "clip:")) for i in ids) else CH_SHORT
