@@ -13,6 +13,7 @@ export type GraphNodeType =
   | 'clipping'
   | 'swatch' // board-only colour swatch
   | 'link'   // board-only link card
+  | 'cluster' // a folded group of nodes (expand on click)
 
 export interface GraphNode {
   id: string
@@ -24,6 +25,7 @@ export interface GraphNode {
   followed?: boolean
   suggested?: boolean
   weight?: number // pattern strength (count)
+  count?: number // cluster: how many nodes it folds
   color?: string // swatch: the hex
   url?: string // link: the href
   date?: string | null // ISO — when it entered your world; drives the "by day clipped" lens

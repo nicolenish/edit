@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses, useBoardEdge } from './api'
-import type { GraphNode, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem, GraphLenses } from './types'
+import type { GraphNode, GraphEdge, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem, GraphLenses } from './types'
 
 const STAGE_W = 2400
 const STAGE_H = 1600
@@ -75,7 +75,40 @@ export default function GraphDesk() {
   // on a board the auto-kindred lines are an optional overlay (docs/graph-views.md B2): a
   // board is your clean canvas by default; "show kinship" fades the system's lines in.
   const [showKinship, setShowKinship] = useState(false)
-  const shownEdges = inBoard && !showKinship ? deskEdges.filter((e) => e.dim === 'authored') : deskEdges
+  // cluster collapse (docs/graph-views.md A3): fold a node group into a hub you expand on click.
+  const [folded, setFolded] = useState<Set<string>>(new Set())
+  // which fold-group a node type belongs to (only these fold; boards/clusters/moodboard don't)
+  const clusterKey = (t: GraphNodeType): string | null =>
+    t === 'house' ? 'house' : t === 'piece' ? 'piece' : t === 'pattern' ? 'kindred' : (t === 'clipping' || t === 'note') ? 'clip' : null
+  const clusterLabel: Record<string, string> = { house: 'houses', piece: 'pieces', kindred: 'kindred', clip: 'clippings' }
+  const foldedIds = useMemo(
+    () => new Set(deskNodes.filter((n) => { const k = clusterKey(n.type); return k && folded.has(k) }).map((n) => n.id)),
+    [deskNodes, folded],
+  )
+  const displayNodes = useMemo(() => {
+    if (!folded.size) return deskNodes
+    const kept = deskNodes.filter((n) => { const k = clusterKey(n.type); return !k || !folded.has(k) })
+    const hubs: GraphNode[] = []
+    for (const k of folded) {
+      const members = deskNodes.filter((n) => clusterKey(n.type) === k)
+      if (members.length < 2) { kept.push(...members); continue }  // a lone node isn't worth folding
+      const cx = members.reduce((s, m) => s + m.x, 0) / members.length
+      const cy = members.reduce((s, m) => s + m.y, 0) / members.length
+      hubs.push({ id: `cluster:${k}`, type: 'cluster', label: `${members.length} ${clusterLabel[k]}`, count: members.length, tags: [], x: cx, y: cy })
+    }
+    return [...kept, ...hubs]
+  }, [deskNodes, folded])
+  const displayNodesRef = useRef(displayNodes)
+  displayNodesRef.current = displayNodes
+  const visEdge = (e: GraphEdge) => !foldedIds.has(e.from) && !foldedIds.has(e.to)
+  // groups worth offering to fold (≥3 of a type on the desk)
+  const foldableGroups = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const n of deskNodes) { const k = clusterKey(n.type); if (k) counts[k] = (counts[k] || 0) + 1 }
+    return Object.entries(counts).filter(([, c]) => c >= 3).map(([key, count]) => ({ key, count }))
+  }, [deskNodes])
+  const toggleFold = (k: string) => setFolded((f) => { const s = new Set(f); s.has(k) ? s.delete(k) : s.add(k); return s })
+  const shownEdges = (inBoard && !showKinship ? deskEdges.filter((e) => e.dim === 'authored') : deskEdges).filter(visEdge)
   const boardPos = useRef<Record<string, [number, number]>>({}) // per-board drag overrides
   const boardItemMutRef = useRef(boardItemMut)                    // latest, for the drag effect
   boardItemMutRef.current = boardItemMut
@@ -144,7 +177,7 @@ export default function GraphDesk() {
   const applyPositions = useCallback(() => {
     if (inBoard) {
       // a board is freeform: each node at its per-board position (drag override wins).
-      ;(deskGraph?.nodes || []).forEach((n) => {
+      displayNodesRef.current.forEach((n) => {
         const el = nodeRefs.current[n.id]
         if (!el) return
         const p = boardPos.current[n.id] || [n.x, n.y]
@@ -167,7 +200,7 @@ export default function GraphDesk() {
       const xL = 180, xR = STAGE_W - 300
       const stackAt: Record<string, number> = {}
       let undated = 0
-      graph.nodes.forEach((n) => {
+      displayNodesRef.current.forEach((n) => {
         const el = nodeRefs.current[n.id]
         if (!el) return
         if (n.date) {
@@ -182,7 +215,7 @@ export default function GraphDesk() {
         }
       })
     } else {
-      graph.nodes.forEach((n) => {
+      displayNodesRef.current.forEach((n) => {
         const el = nodeRefs.current[n.id]
         if (!el) return
         const p = posOverride.current[n.id] || [n.x, n.y]
@@ -252,6 +285,12 @@ export default function GraphDesk() {
 
   // position nodes before first paint (avoids a flash at 0,0)
   useLayoutEffect(() => { applyPositions() }, [applyPositions, view])
+
+  // folding changes which nodes exist — reposition the hubs and reframe to the new set
+  useEffect(() => {
+    const id = requestAnimationFrame(() => { fitted.current = false; applyPositions(); fit() })
+    return () => cancelAnimationFrame(id)
+  }, [folded, applyPositions, fit])
 
   // wire pan / zoom / drag once the stage is mounted (graph view only)
   useEffect(() => {
@@ -690,10 +729,21 @@ export default function GraphDesk() {
                 <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 26, textTransform: 'none', letterSpacing: 0, color: '#7d776b' }}>
                   add from the index · drag to arrange · ✕ to remove
                 </span>
-              ) : lens === 'diary' && (
+              ) : lens === 'diary' ? (
                 <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 26, textTransform: 'none', letterSpacing: 0, color: '#7d776b' }}>
                   drag anything to go back to your own arrangement
                 </span>
+              ) : foldableGroups.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#7d776b' }}>Fold</span>
+                  {foldableGroups.map((g) => (
+                    <button key={g.key} onClick={() => toggleFold(g.key)}
+                      title={folded.has(g.key) ? `Unfold ${clusterLabel[g.key]}` : `Fold the ${g.count} ${clusterLabel[g.key]} into a hub`}
+                      style={{ ...lensBtn(folded.has(g.key)), color: folded.has(g.key) ? '#fbfaf8' : '#7d776b', padding: '5px 9px' }}>
+                      {clusterLabel[g.key]} {g.count}
+                    </button>
+                  ))}
+                </div>
               )}
               <button onClick={() => zoom(1 / 1.15)} style={iconBtn}>−</button>
               <button onClick={() => zoom(1.15)} style={iconBtn}>+</button>
@@ -730,7 +780,7 @@ export default function GraphDesk() {
                   </g>
                   {/* authored — connections you drew on a board (always shown; click to edit) */}
                   <g style={{ pointerEvents: 'stroke' }}>
-                    {deskEdges.filter((e) => e.dim === 'authored').map((e, i) => (
+                    {deskEdges.filter((e) => e.dim === 'authored' && visEdge(e)).map((e, i) => (
                       <g key={'a' + i}>
                         <line data-from={e.from} data-to={e.to} stroke="transparent" strokeWidth="14" style={{ cursor: 'pointer' }}
                           onClick={() => setEdgeEdit({ from: e.from, to: e.to, label: e.label || '' })} />
@@ -740,7 +790,7 @@ export default function GraphDesk() {
                   </g>
                   {/* authored edge labels, centred on the line */}
                   <g style={{ pointerEvents: 'none' }}>
-                    {deskEdges.filter((e) => e.dim === 'authored' && e.label).map((e, i) => (
+                    {deskEdges.filter((e) => e.dim === 'authored' && e.label && visEdge(e)).map((e, i) => (
                       <text key={'al' + i} data-from={e.from} data-to={e.to} textAnchor="middle" dominantBaseline="middle"
                         style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 13, fill: INK, paintOrder: 'stroke', stroke: '#fbfaf8', strokeWidth: 5 }}>{e.label}</text>
                     ))}
@@ -763,22 +813,23 @@ export default function GraphDesk() {
                   )
                 })()}
 
-                {deskNodes.map((n) => (
+                {displayNodes.map((n) => (
                   <NodeCard
                     key={n.id}
                     node={n}
                     followed={followedOf(n)}
                     pinned={isPinned(n.id)}
-                    count={n.type === 'board' ? boardCount(n.id) : undefined}
+                    count={n.type === 'board' ? boardCount(n.id) : n.type === 'cluster' ? n.count : undefined}
                     highlighted={open === n.id}
                     innerRef={(el) => { nodeRefs.current[n.id] = el }}
                     onOpen={() => {
-                      if (n.type === 'board') enterBoard(n.id)
+                      if (n.type === 'cluster') { const k = n.id.slice('cluster:'.length); setFolded((f) => { const s = new Set(f); s.delete(k); return s }) }
+                      else if (n.type === 'board') enterBoard(n.id)
                       else if (n.id.startsWith('local:')) { if (n.type === 'link' && n.url) window.open(n.url, '_blank', 'noopener') }
                       else openNode(n.id)
                     }}
                     onRemove={inBoard ? () => boardItemMut.mutate({ slug: boardSlug!, nodeId: n.id, remove: true }) : undefined}
-                    connectable={inBoard}
+                    connectable={inBoard && n.type !== 'cluster'}
                   />
                 ))}
               </div>
@@ -1061,6 +1112,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   else if (suggested) Object.assign(base, { background: '#fbfaf8', borderStyle: 'dashed', borderColor: 'rgba(20,19,16,.5)', opacity: 0.72 })
   else Object.assign(base, { background: '#fff', boxShadow: '3px 3px 0 rgba(20,19,16,.1)' })
   if (isBoard) Object.assign(base, { backgroundImage: 'radial-gradient(rgba(20,19,16,.16) 1px, transparent 1px)', backgroundSize: '16px 16px' })
+  if (node.type === 'cluster') Object.assign(base, { background: '#fff', cursor: 'pointer', boxShadow: '4px 4px 0 #fff, 5px 5px 0 rgba(20,19,16,.4), 8px 8px 0 #fff, 9px 9px 0 rgba(20,19,16,.25)' })
   if (highlighted && !isPattern) Object.assign(base, { outline: `1px solid ${ACCENT}`, outlineOffset: 4 })
 
   const showPinmark = pinned && !isPattern && !isBoard
@@ -1150,6 +1202,12 @@ function renderBody(node: GraphNode, count: number | undefined, suggested: boole
         <div style={{ fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#7d776b' }}>Link ↗</div>
         <div style={{ fontFamily: 'Newsreader, serif', fontSize: 18, paddingTop: 6 }}>{node.label}</div>
         {node.url && <div style={{ fontFamily: 'Newsreader, serif', fontSize: 12, color: ACCENT, paddingTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{node.url.replace(/^https?:\/\//, '')}</div>}
+      </>
+    case 'cluster':
+      return <>
+        <div style={{ fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#7d776b' }}>Folded ⊕</div>
+        <div style={{ fontFamily: 'Newsreader, serif', fontSize: 22, paddingTop: 6 }}>{node.label}</div>
+        <div style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, color: ACCENT, paddingTop: 2 }}>click to expand</div>
       </>
     default:
       return null
@@ -1759,8 +1817,8 @@ function pill(size: number): React.CSSProperties {
   return { fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: size, border: '1px solid rgba(20,19,16,.28)', borderRadius: 999, padding: '2px 9px' }
 }
 function cardWidth(type: GraphNodeType): number {
-  return { piece: 226, house: 208, pattern: 194, board: 212, clipping: 176, note: 214, swatch: 168, link: 200 }[type] ?? 200
+  return { piece: 226, house: 208, pattern: 194, board: 212, clipping: 176, note: 214, swatch: 168, link: 200, cluster: 190 }[type] ?? 200
 }
 function shortKind(type: GraphNodeType): string {
-  return { piece: 'PIECE', house: 'HOUSE', pattern: 'KINDRED', board: 'BOARD', clipping: 'CLIPPING', note: 'NOTE', swatch: 'SWATCH', link: 'LINK' }[type] ?? ''
+  return { piece: 'PIECE', house: 'HOUSE', pattern: 'KINDRED', board: 'BOARD', clipping: 'CLIPPING', note: 'NOTE', swatch: 'SWATCH', link: 'LINK', cluster: 'FOLDED' }[type] ?? ''
 }
