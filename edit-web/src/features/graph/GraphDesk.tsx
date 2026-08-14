@@ -685,11 +685,10 @@ export default function GraphDesk() {
                   {!isCollapsed && shown.map((it) => {
                     counter += 1
                     return (
-                      <button key={it.id} onClick={(e) => {
+                      <button key={it.id} onClick={() => {
                         if (g.kind === 'board') enterBoard(it.id)
                         else if (inBoard) boardItemMut.mutate({ slug: boardSlug!, nodeId: it.id })
                         else if (study && g.kind === 'house') setStudy(it.id)  // switch the long view in place
-                        else if ((e.metaKey || e.shiftKey) && g.kind === 'house') toggleCompare(it.id)  // ⌘-click → compare
                         else focusFromIndex(it.id)
                       }} className={g.kind === 'house' ? 'idx-house' : undefined} style={indexRow}
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#fffdf9')}
@@ -769,8 +768,6 @@ export default function GraphDesk() {
                       ))}
                       {graph.focus && <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>}
                       {!compareMode && focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
-                      {compareMode && focusIds.length < 2 && <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, textTransform: 'none', letterSpacing: 0, color: ACCENT }}>pick another house to compare</span>}
-                      {!compareMode && <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>＋ a house to compare</span>}
                       <button onClick={clearFocus} style={{ ...lensBtn(false), border: 'none', color: '#7d776b' }}>full map</button>
                     </>
                   )}
