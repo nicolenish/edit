@@ -138,6 +138,8 @@ export interface ClipEditable {
   id: string
   kind: string
   title: string
+  brand: string
+  piece_name: string
   text: string
   url: string
   image_url: string

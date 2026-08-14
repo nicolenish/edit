@@ -259,16 +259,40 @@ def build_graph(focus: str | None = None) -> dict:
     from library.models import Clip as ClipModel
     _KIND_TYPE = {"note": "note", "clip": "clipping", "piece": "piece", "house": "house"}
     clips = list(ClipModel.objects.select_related("board").all())
-    clip_pins = []
+    clip_pins, clip_house_edges, clip_pattern_edges = [], [], []
+    # a clip's freeform tags ("black", "halter neckline") → the desk's kindred nodes, matched
+    # on the pattern's value (the part after its dim), so a clip joins the traits it shares.
+    val_to_pattern = {}
+    for pat in desk_patterns:
+        val = (pat.tag.split(":", 1)[1] if ":" in pat.tag else pat.tag).replace("-", " ").lower()
+        val_to_pattern.setdefault(val, pat.tag)
     for i, clip in enumerate(clips):
         nid = f"clip:{clip.id}"
         x, y = _seed_xy("note", i)
         add({"id": nid, "type": _KIND_TYPE.get(clip.kind, "note"),
-             "label": clip.title or (clip.text[:40] if clip.text else "Clipping"),
-             "subtitle": "clipped", "tags": (clip.tags or [])[:3], "image": clip.image_url or None,
+             "label": clip.title or clip.piece_name or (clip.text[:40] if clip.text else "Clipping"),
+             "subtitle": clip.brand or "clipped", "tags": (clip.tags or [])[:3], "image": clip.image_url or None,
              "date": _iso(clip.created_at), "x": x, "y": y})
         if clip.board:
             clip_pins.append((nid, board_id(clip.board)))
+        # link to its house, if the brand names one we know
+        if clip.brand:
+            b = (Brand.objects.filter(name__iexact=clip.brand).first()
+                 or Brand.objects.filter(name__icontains=clip.brand).first())
+            if b:
+                add_house(b, nodes, node_ids, saved, follow_date)
+                clip_house_edges.append((nid, house_id(b)))
+        # link to the kindred traits it shares
+        for t in (clip.tags or []):
+            tnorm = str(t).replace("-", " ").lower().strip()
+            hit = val_to_pattern.get(tnorm)
+            if not hit:
+                for val, ptag in val_to_pattern.items():
+                    if val in tnorm.split() or (len(val) > 3 and val in tnorm):
+                        hit = ptag
+                        break
+            if hit:
+                clip_pattern_edges.append((nid, hit))
 
     # ── assemble edges (only between included nodes) ──
     # `dim` drives how the line reads (docs: connection grammar):
@@ -340,6 +364,11 @@ def build_graph(focus: str | None = None) -> dict:
     # clip → board: a clip pinned to a board draws the accent line
     for nid, bid in clip_pins:
         once(nid, bid, "pinned-to", False, "pin")
+    # clip → its house (solid) and the kindred traits it shares (dotted)
+    for nid, hid in clip_house_edges:
+        once(nid, hid, "made-by", False, "direct")
+    for nid, ptag in clip_pattern_edges:
+        once(nid, pattern_id(ptag), "exhibits", True, "pattern")
 
     from library.models import DiaryEntry, Follow, Pin
 
@@ -547,6 +576,8 @@ def _clip_detail(clip_id):
         "title": c.title or (c.text[:60] if c.text else "Clipping"),
         "desc": c.text or "", "image": c.image_url or None, "tags": list(c.tags or [])[:8],
         "meta": [m for m in [
+            ({"k": "House", "v": c.brand} if c.brand else None),
+            ({"k": "Piece", "v": c.piece_name} if c.piece_name else None),
             {"k": "Clipped", "v": c.created_at.strftime("%b %d")},
             ({"k": "Link", "v": c.url} if c.url else None),
             ({"k": "Board", "v": c.board.name} if c.board else None),
@@ -554,9 +585,9 @@ def _clip_detail(clip_id):
         "connected": _connected(f"clip:{c.id}"), "boards": _boards_for_pin(),
         "isHouse": False, "canPin": False,
         # clip-specific: editable payload
-        "clip": {"id": str(c.id), "kind": c.kind, "title": c.title, "text": c.text,
-                 "url": c.url, "image_url": c.image_url, "tags": list(c.tags or []),
-                 "board_slug": c.board.slug if c.board else None},
+        "clip": {"id": str(c.id), "kind": c.kind, "title": c.title, "brand": c.brand,
+                 "piece_name": c.piece_name, "text": c.text, "url": c.url, "image_url": c.image_url,
+                 "tags": list(c.tags or []), "board_slug": c.board.slug if c.board else None},
     }
 
 

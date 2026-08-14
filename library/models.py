@@ -86,7 +86,9 @@ class Clip(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     kind = models.CharField(max_length=8, choices=KIND_CHOICES, default="note")
     title = models.CharField(max_length=200, blank=True)
-    text = models.TextField(blank=True)
+    brand = models.CharField(max_length=120, blank=True)       # the house — links the clip to it on the desk
+    piece_name = models.CharField(max_length=200, blank=True)  # the garment's name, if it has one
+    text = models.TextField(blank=True)                        # any other info (who wore it, where, notes)
     url = models.URLField(max_length=1000, blank=True)
     image_url = models.CharField(max_length=1000, blank=True)  # external URL or a local /media/ upload
     tags = models.JSONField(default=list, blank=True)

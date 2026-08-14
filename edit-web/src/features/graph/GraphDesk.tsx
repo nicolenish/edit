@@ -564,7 +564,9 @@ export default function GraphDesk() {
                   <button
                     onClick={() => boardQ.data && updateBoardMut.mutate({ slug: boardSlug!, open_thread: !boardQ.data.board.isOpenThread })}
                     title="Pin this board in the header as your open thread"
-                    style={{ ...lensBtn(!!boardQ.data?.board.isOpenThread), color: boardQ.data?.board.isOpenThread ? ACCENT : '#7d776b' }}>
+                    style={boardQ.data?.board.isOpenThread
+                      ? { cursor: 'pointer', background: 'rgba(143,67,49,.12)', color: ACCENT, border: `1px solid ${ACCENT}`, padding: '6px 12px', font: 'inherit', letterSpacing: '.14em', textTransform: 'uppercase' }
+                      : { ...lensBtn(false), color: '#7d776b' }}>
                     {boardQ.data?.board.isOpenThread ? '★ open thread' : 'make open thread'}
                   </button>
                   <span style={{ color: '#a09a8d' }}>{boardQ.data ? `${boardQ.data.board.count} things` : ''}</span>
@@ -1011,6 +1013,8 @@ function ClipEditor({ clip, boards, onClose }: { clip: ClipEditable; boards: Ind
   const del = useDeleteClip()
   const [kind, setKind] = useState(clip.kind)
   const [text, setText] = useState(clip.text)
+  const [brand, setBrand] = useState(clip.brand)
+  const [pieceName, setPieceName] = useState(clip.piece_name)
   const [tags, setTags] = useState(clip.tags.join(', '))
   const [board, setBoard] = useState(clip.board_slug || '')
   const boardSlug = (id: string) => id.replace('board:', '')
@@ -1026,8 +1030,12 @@ function ClipEditor({ clip, boards, onClose }: { clip: ClipEditable; boards: Ind
         <option value="piece">Piece — a garment</option>
         <option value="house">House — a label</option>
       </select>
-      <label style={label}>Text</label>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} style={{ ...field, resize: 'vertical', fontWeight: 300, lineHeight: 1.5 }} />
+      <label style={label}>House / brand <span style={{ textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>— links it on the desk</span></label>
+      <input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Givenchy" style={field} />
+      <label style={label}>Piece name</label>
+      <input value={pieceName} onChange={(e) => setPieceName(e.target.value)} placeholder="if it has one" style={field} />
+      <label style={label}>Notes / other info</label>
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="who wore it, where, why it caught your eye…" style={{ ...field, resize: 'vertical', fontWeight: 300, lineHeight: 1.5 }} />
       <label style={label}>Tags — comma separated</label>
       <input value={tags} onChange={(e) => setTags(e.target.value)} style={field} />
       <label style={label}>Board</label>
@@ -1036,7 +1044,7 @@ function ClipEditor({ clip, boards, onClose }: { clip: ClipEditable; boards: Ind
         {boards.map((b) => <option key={b.id} value={boardSlug(b.id)}>→ {b.label}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <button disabled={update.isPending} onClick={() => update.mutate({ id: clip.id, kind, text, tags, board })}
+        <button disabled={update.isPending} onClick={() => update.mutate({ id: clip.id, kind, brand, piece_name: pieceName, text, tags, board })}
           style={{ flex: 1, cursor: 'pointer', background: INK, color: '#fbfaf8', border: 'none', padding: 11, ...uppercase, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.16em' }}>
           {update.isPending ? 'Saving…' : update.isSuccess ? 'Saved ✓' : 'Save'}
         </button>
@@ -1054,15 +1062,17 @@ function CaptureBar({ boards, onCaptured }: { boards: IndexItem[]; onCaptured: (
   const [text, setText] = useState('')
   const [url, setUrl] = useState('')
   const [image, setImage] = useState('')
+  const [brand, setBrand] = useState('')
+  const [pieceName, setPieceName] = useState('')
   const [board, setBoard] = useState('')
   const [open, setOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const boardSlug = (id: string) => id.replace('board:', '')
   const submit = () => {
-    if (!text.trim() && !url.trim() && !image.trim()) return
+    if (!text.trim() && !url.trim() && !image.trim() && !brand.trim() && !pieceName.trim()) return
     capture.mutate(
-      { text: text.trim(), url: url.trim(), image_url: image.trim(), board: board || undefined },
-      { onSuccess: (d) => { setText(''); setUrl(''); setImage(''); setOpen(false); onCaptured(d.node_id) } },
+      { text: text.trim(), url: url.trim(), image_url: image.trim(), brand: brand.trim(), piece_name: pieceName.trim(), board: board || undefined },
+      { onSuccess: (d) => { setText(''); setUrl(''); setImage(''); setBrand(''); setPieceName(''); setOpen(false); onCaptured(d.node_id) } },
     )
   }
   const takeImageFile = (file: File | Blob) => {
@@ -1088,6 +1098,8 @@ function CaptureBar({ boards, onCaptured }: { boards: IndexItem[]; onCaptured: (
           style={{ border: 'none', background: 'none', padding: '4px 0', fontFamily: 'Newsreader, serif', fontSize: 20, color: INK, outline: 'none', width: '100%' }} />
         {open && (
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input value={brand} onChange={(e) => setBrand(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit() }} placeholder="house / brand — e.g. Givenchy" style={fieldStyle} />
+            <input value={pieceName} onChange={(e) => setPieceName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit() }} placeholder="piece name (if any)" style={fieldStyle} />
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="paste a link…" style={fieldStyle} />
             <input value={image} onChange={(e) => setImage(e.target.value)} placeholder="paste an image, or a URL…" style={fieldStyle} />
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}

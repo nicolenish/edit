@@ -207,11 +207,13 @@ def capture(request):
     text = (request.data.get("text") or "").strip()
     url = (request.data.get("url") or "").strip()
     image_url = (request.data.get("image_url") or "").strip()
-    if not (text or url or image_url):
+    brand = (request.data.get("brand") or "").strip()
+    piece_name = (request.data.get("piece_name") or "").strip()
+    if not (text or url or image_url or brand or piece_name):
         return Response({"detail": "nothing to clip"}, status=400)
 
     try:
-        triage = classify_capture(text=text, url=url, image_url=image_url, client=anthropic.Anthropic())
+        triage = classify_capture(text=text or piece_name, url=url, image_url=image_url, client=anthropic.Anthropic())
     except Exception as e:
         # if the classifier is unavailable, fall back to a plain note/clip
         triage = {"kind": "clip" if (image_url or url) else "note",
@@ -223,9 +225,14 @@ def capture(request):
     if board_slug:
         board = Board.objects.filter(slug=board_slug).first()
 
+    kind = triage["kind"]
+    if (brand or piece_name) and kind == "note":  # a named/branded thing isn't a plain note
+        kind = "clip"
+
     clip = Clip.objects.create(
-        kind=triage["kind"], title=triage["title"], text=text, url=url, image_url=image_url,
-        tags=triage["tags"], board=board, model_id=triage.get("model_id", ""),
+        kind=kind, title=triage["title"] or piece_name, brand=brand, piece_name=piece_name,
+        text=text, url=url, image_url=image_url, tags=triage["tags"], board=board,
+        model_id=triage.get("model_id", ""),
     )
     return Response(ClipSerializer(clip).data, status=201)
 
@@ -237,7 +244,7 @@ def clip_detail(request, clip_id):
         clip.delete()
         return Response(status=204)
     if request.method == "PATCH":
-        for field in ("kind", "title", "text", "url", "image_url"):
+        for field in ("kind", "title", "brand", "piece_name", "text", "url", "image_url"):
             if field in request.data:
                 setattr(clip, field, request.data[field])
         if "tags" in request.data:

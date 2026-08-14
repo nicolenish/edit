@@ -39,7 +39,7 @@ class ClipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Clip
-        fields = ["id", "node_id", "kind", "title", "text", "url", "image_url",
+        fields = ["id", "node_id", "kind", "title", "brand", "piece_name", "text", "url", "image_url",
                   "tags", "board_slug", "created_at", "updated_at"]
 
     def get_node_id(self, obj):

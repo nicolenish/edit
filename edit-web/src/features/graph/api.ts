@@ -196,7 +196,7 @@ export function useUploadImage() {
 export function useCapture() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { text?: string; url?: string; image_url?: string; board?: string }) => {
+    mutationFn: async (payload: { text?: string; url?: string; image_url?: string; brand?: string; piece_name?: string; board?: string }) => {
       const { data } = await api.post('/capture/', payload)
       return data as { node_id: string; kind: string; title: string }
     },
@@ -210,7 +210,7 @@ export function useCapture() {
 export function useUpdateClip() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; kind?: string; title?: string; text?: string; url?: string; image_url?: string; tags?: string; board?: string }) => {
+    mutationFn: async ({ id, ...patch }: { id: string; kind?: string; title?: string; brand?: string; piece_name?: string; text?: string; url?: string; image_url?: string; tags?: string; board?: string }) => {
       const { data } = await api.patch(`/clips/${id}/`, patch)
       return data
     },
