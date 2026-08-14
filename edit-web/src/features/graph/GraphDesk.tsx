@@ -203,23 +203,15 @@ export default function GraphDesk() {
   }, [])
 
   const applyPositions = useCallback(() => {
+    // 1) work out where every visible card SHOULD be, per current mode.
+    const targets: Record<string, [number, number]> = {}
     if (inBoard) {
       // a board is freeform: each node at its per-board position (drag override wins).
-      displayNodesRef.current.forEach((n) => {
-        const el = nodeRefs.current[n.id]
-        if (!el) return
-        const p = boardPos.current[n.id] || [n.x, n.y]
-        el.style.left = `${p[0]}px`; el.style.top = `${p[1]}px`
-      })
-      let t = 0
-      const tick = () => { updateEdges(); if ((t += 16) < 700) requestAnimationFrame(tick) }
-      tick()
+      displayNodesRef.current.forEach((n) => { if (nodeRefs.current[n.id]) targets[n.id] = boardPos.current[n.id] || [n.x, n.y] })
+    } else if (!graph) {
       return
-    }
-    if (!graph) return
-    if (lens === 'diary') {
+    } else if (lens === 'diary') {
       // x = when it entered your world, on a shared time axis; y = a lane per type.
-      // Undated, Nishi-derived nodes (patterns) sit in a lane of their own at the bottom.
       const times = graph.nodes.filter((n) => n.date).map((n) => Date.parse(n.date!))
       const min = times.length ? Math.min(...times) : 0
       const max = times.length ? Math.max(...times) : 1
@@ -229,31 +221,50 @@ export default function GraphDesk() {
       const stackAt: Record<string, number> = {}
       let undated = 0
       displayNodesRef.current.forEach((n) => {
-        const el = nodeRefs.current[n.id]
-        if (!el) return
+        if (!nodeRefs.current[n.id]) return
         if (n.date) {
           const x = xL + ((Date.parse(n.date) - min) / span) * (xR - xL)
           const lane = laneY[n.type] ?? 480
           const key = `${n.type}:${Math.round(x / 60)}` // stagger nodes landing near the same day
           const stack = (stackAt[key] = (stackAt[key] || 0) + 1) - 1
-          el.style.left = `${x}px`; el.style.top = `${lane + stack * 42}px`
+          targets[n.id] = [x, lane + stack * 42]
         } else {
-          el.style.left = `${xL + undated * 250}px`; el.style.top = `${1160}px`
-          undated += 1
+          targets[n.id] = [xL + undated * 250, 1160]; undated += 1
         }
       })
     } else {
-      displayNodesRef.current.forEach((n) => {
-        const el = nodeRefs.current[n.id]
-        if (!el) return
-        const p = (!multiRef.current && posOverride.current[n.id]) || [n.x, n.y]
-        el.style.left = `${p[0]}px`
-        el.style.top = `${p[1]}px`
-      })
+      displayNodesRef.current.forEach((n) => { if (nodeRefs.current[n.id]) targets[n.id] = (!multiRef.current && posOverride.current[n.id]) || [n.x, n.y] })
     }
-    // animate edges alongside the CSS transition (~700ms)
+
+    // 2) FLIP every card that moved so it glides — this is what animates *any* graph change (fold,
+    //    lens, arrangement, focus…). A carried-over card slides from where it sits; a brand-new card
+    //    slides out from toward the layout centre. On the very first paint (nothing placed yet) we
+    //    just position, so there's no load-time fly-in. (Setting style.left in a layout effect has no
+    //    painted 'from' baseline, hence the explicit snap-back + reflow + release.)
+    const entries = Object.entries(targets).map(([id, p]) => ({ p, el: nodeRefs.current[id]! })).filter((e) => e.el)
+    const anyPlaced = entries.some((e) => !!e.el.style.left)
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
+    entries.forEach(({ p, el }) => { bx0 = Math.min(bx0, p[0]); by0 = Math.min(by0, p[1]); bx1 = Math.max(bx1, p[0] + el.offsetWidth); by1 = Math.max(by1, p[1] + el.offsetHeight) })
+    const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2
+    const anim: HTMLDivElement[] = []
+    entries.forEach(({ p, el }) => {
+      const had = !!el.style.left
+      if (!anyPlaced) { el.style.left = `${p[0]}px`; el.style.top = `${p[1]}px`; return }
+      const fromX = had ? styleX(el) : p[0] + (cx - el.offsetWidth / 2 - p[0]) * 0.62
+      const fromY = had ? styleY(el) : p[1] + (cy - el.offsetHeight / 2 - p[1]) * 0.62
+      if (Math.abs(fromX - p[0]) > 1 || Math.abs(fromY - p[1]) > 1) {
+        el.style.transition = 'none'; el.style.left = `${fromX}px`; el.style.top = `${fromY}px`
+        el.dataset.tx = String(p[0]); el.dataset.ty = String(p[1]); anim.push(el)
+      } else if (!had) {
+        el.style.left = `${p[0]}px`; el.style.top = `${p[1]}px`
+      }
+    })
+    if (anim.length && panRef.current) void panRef.current.offsetWidth   // one reflow to lock the 'from'
+    anim.forEach((el) => { el.style.transition = NODE_TRANSITION; el.style.left = `${el.dataset.tx}px`; el.style.top = `${el.dataset.ty}px`; delete el.dataset.tx; delete el.dataset.ty })
+
+    // keep the edges glued to the cards for the length of the glide
     let t = 0
-    const tick = () => { updateEdges(); if ((t += 16) < 700) requestAnimationFrame(tick) }
+    const tick = () => { updateEdges(); if ((t += 16) < 850) requestAnimationFrame(tick) }
     tick()
   }, [graph, lens, updateEdges, inBoard, deskGraph])
 
@@ -315,28 +326,24 @@ export default function GraphDesk() {
   }, [applyTransform])
 
   // a focus/compare change (incl. the "only shared" toggle) swaps the node set; this signature
-  // changes only when the real (non-placeholder) layout does.
+  // changes only when the real (non-placeholder) layout does. Node motion is handled centrally by
+  // applyPositions (FLIP); this effect only eases the CAMERA to frame the new layout.
   const focusSig = graph && focusKey ? `${focusKey}:${sharedOnly}:${graph.nodes.length}` : ''
-  // FLIP: right before a focus/compare re-layout moves the cards, record where each one currently
-  // sits, so the refit can animate them from here to their new spots (a plain style.left change set
-  // in a layout effect has no painted "from" baseline and would just jump).
-  const prevPos = useRef<Record<string, [number, number]>>({})
-  useLayoutEffect(() => {
-    const m: Record<string, [number, number]> = {}
-    // only cards that already have a position (persisted across the change) — a freshly-mounted
-    // node has no style.left yet and should appear at its spot, not fly in from the corner.
-    Object.entries(nodeRefs.current).forEach(([id, el]) => { if (el && el.style.left) m[id] = [el.offsetLeft, el.offsetTop] })
-    prevPos.current = m
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusSig])
 
   // position nodes before first paint (avoids a flash at 0,0)
   useLayoutEffect(() => { applyPositions() }, [applyPositions, view])
 
-  // folding changes which nodes exist — reposition the hubs and reframe to the new set
+  // folding changes which nodes exist — the cards glide (applyPositions FLIPs) and the camera eases
+  // to the reframed set over the same beat.
   useEffect(() => {
-    const id = requestAnimationFrame(() => { fitted.current = false; applyPositions(); fit() })
-    return () => cancelAnimationFrame(id)
+    let clear = 0
+    const id = requestAnimationFrame(() => {
+      fitted.current = false
+      if (panRef.current) panRef.current.style.transition = 'transform .75s cubic-bezier(.22,.7,.2,1)'
+      applyPositions(); fit()
+      clear = window.setTimeout(() => { if (panRef.current) panRef.current.style.transition = '' }, 850)
+    })
+    return () => { cancelAnimationFrame(id); clearTimeout(clear) }
   }, [folded, applyPositions, fit])
 
   // a focus/compare change (incl. the "only shared" toggle) swaps the node set. With
@@ -347,39 +354,11 @@ export default function GraphDesk() {
     if (!focusSig || isPlaceholderData) return
     let settle = 0
     const raf = requestAnimationFrame(() => {
-      // New node set → the cards animate to their new spots. Ease the CAMERA over the same beat so
-      // the frame glides while the nodes visibly re-arrange into it. fit()/measurements read each
-      // card's TARGET position (style.left), never its mid-flight offsetLeft.
+      // The cards are already gliding (applyPositions FLIPped them via the layout effect). Here we
+      // only ease the CAMERA over the same beat so the frame follows, framing the settled TARGET
+      // positions (styleX), never the mid-flight offsetLeft.
       const pan = panRef.current, stage = stageRef.current
       if (pan) pan.style.transition = 'transform .75s cubic-bezier(.22,.7,.2,1)'
-      applyPositions()
-      // where the new layout is centred — entering cards emerge from here so the comparison visibly
-      // assembles, rather than just popping into place.
-      const els = Object.values(nodeRefs.current).filter((el): el is HTMLDivElement => !!el)
-      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
-      els.forEach((el) => { const x = styleX(el), y = styleY(el); bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x + el.offsetWidth); by1 = Math.max(by1, y + el.offsetHeight) })
-      const ecx = (bx0 + bx1) / 2, ecy = (by0 + by1) / 2
-      // Animate each card that moves. A card carried over from the previous view FLIPs from where it
-      // sat; a brand-new card slides out from partway toward the centre — so a full map reducing to a
-      // comparison sends lots of cards travelling, not just the few that persist.
-      const anim: HTMLDivElement[] = []
-      els.forEach((el) => {
-        const tx2 = styleX(el), ty2 = styleY(el)
-        const prev = prevPos.current[el.getAttribute('data-node') || '']
-        const fromX = prev ? prev[0] : tx2 + (ecx - el.offsetWidth / 2 - tx2) * 0.62
-        const fromY = prev ? prev[1] : ty2 + (ecy - el.offsetHeight / 2 - ty2) * 0.62
-        if (Math.abs(fromX - tx2) > 1 || Math.abs(fromY - ty2) > 1) {
-          el.style.transition = 'none'; el.dataset.tx = String(tx2); el.dataset.ty = String(ty2)
-          el.style.left = `${fromX}px`; el.style.top = `${fromY}px`
-          anim.push(el)
-        }
-      })
-      if (pan) void pan.offsetWidth   // one reflow to lock in the "from" positions
-      anim.forEach((el) => {
-        el.style.transition = NODE_TRANSITION
-        el.style.left = `${el.dataset.tx}px`; el.style.top = `${el.dataset.ty}px`
-        delete el.dataset.tx; delete el.dataset.ty
-      })
       fit(); fitted.current = true
       // On a dense/narrow compare, push in toward the content centre — but never past what keeps
       // both poles on screen. Folded into the same eased camera move (no separate delayed zoom).
