@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses } from './api'
+import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses, useBoardEdge } from './api'
 import type { GraphNode, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem, GraphLenses } from './types'
 
 const STAGE_W = 2400
@@ -61,6 +61,10 @@ export default function GraphDesk() {
   const updateBoardMut = useUpdateBoard()
   const deleteBoardMut = useDeleteBoard()
   const addLocalMut = useAddBoardLocal()
+  const boardEdgeMut = useBoardEdge()
+  const boardEdgeMutRef = useRef(boardEdgeMut)                    // latest, for the drag effect
+  boardEdgeMutRef.current = boardEdgeMut
+  const [edgeEdit, setEdgeEdit] = useState<{ from: string; to: string; label: string } | null>(null)
   const inBoard = !!boardSlug
   const deskGraph = inBoard ? boardQ.data : graph            // what the canvas draws
   const deskNodes = deskGraph?.nodes ?? []
@@ -123,6 +127,14 @@ export default function GraphDesk() {
       l.setAttribute('y1', String(a.offsetTop + a.offsetHeight / 2))
       l.setAttribute('x2', String(b.offsetLeft + b.offsetWidth / 2))
       l.setAttribute('y2', String(b.offsetTop + b.offsetHeight / 2))
+    })
+    // authored-edge labels ride the midpoint of their line
+    svg.querySelectorAll<SVGTextElement>('text[data-from]').forEach((t) => {
+      const a = nodeRefs.current[t.dataset.from!]
+      const b = nodeRefs.current[t.dataset.to!]
+      if (!a || !b) return
+      t.setAttribute('x', String((a.offsetLeft + a.offsetWidth / 2 + b.offsetLeft + b.offsetWidth / 2) / 2))
+      t.setAttribute('y', String((a.offsetTop + a.offsetHeight / 2 + b.offsetTop + b.offsetHeight / 2) / 2))
     })
   }, [])
 
@@ -245,9 +257,26 @@ export default function GraphDesk() {
 
     if (!fitted.current) { fit(); fitted.current = true } else { applyTransform(); updateEdges() }
 
-    let mode: 'node' | 'pan' | null = null
+    let mode: 'node' | 'pan' | 'connect' | null = null
     let sx = 0, sy = 0, ox = 0, oy = 0, el: HTMLElement | null = null, moved = 0
     let boardHover: string | null = null   // a board node the dragged card is hovering over
+    let connectFrom: string | null = null  // source node id while drawing a manual connection
+
+    // cursor (client) → canvas coordinates (account for pan + zoom)
+    const toCanvas = (clientX: number, clientY: number) => {
+      const r = stage.getBoundingClientRect()
+      return { cx: (clientX - r.left - tx.current) / scale.current, cy: (clientY - r.top - ty.current) / scale.current }
+    }
+    // which node sits under a canvas point (for drop-to-connect)
+    const nodeAt = (cx: number, cy: number, exclude?: string | null) => {
+      for (const [id, n] of Object.entries(nodeRefs.current)) {
+        if (!n || id === exclude || n.style.display === 'none') continue
+        if (cx >= n.offsetLeft && cx <= n.offsetLeft + n.offsetWidth && cy >= n.offsetTop && cy <= n.offsetTop + n.offsetHeight)
+          return { id, el: n }
+      }
+      return null
+    }
+    const tempLine = () => svgRef.current?.querySelector<SVGLineElement>('#__connectTemp') || null
 
     // which board node (if any) sits under a dragged card's centre — for drag-to-board.
     const boardUnder = (card: HTMLElement) => {
@@ -265,8 +294,22 @@ export default function GraphDesk() {
     }
 
     const onDown = (e: MouseEvent) => {
-      const node = (e.target as HTMLElement).closest('[data-node]') as HTMLElement | null
       sx = e.clientX; sy = e.clientY; moved = 0
+      // a mousedown on a node's connector handle starts a manual connection (board only)
+      const handle = (e.target as HTMLElement).closest('[data-connect]') as HTMLElement | null
+      if (inBoard && handle) {
+        mode = 'connect'; connectFrom = handle.dataset.connect!
+        const src = nodeRefs.current[connectFrom]
+        const t = tempLine()
+        if (src && t) {
+          const x = src.offsetLeft + src.offsetWidth / 2, y = src.offsetTop + src.offsetHeight / 2
+          t.setAttribute('x1', String(x)); t.setAttribute('y1', String(y))
+          t.setAttribute('x2', String(x)); t.setAttribute('y2', String(y))
+          t.style.display = 'block'
+        }
+        return
+      }
+      const node = (e.target as HTMLElement).closest('[data-node]') as HTMLElement | null
       if (node) {
         mode = 'node'; el = node
         ox = parseFloat(node.style.left); oy = parseFloat(node.style.top)
@@ -293,11 +336,31 @@ export default function GraphDesk() {
             if (hit) { boardHover = hit.id; hit.el.style.outline = `2px solid ${ACCENT}`; hit.el.style.outlineOffset = '3px' }
           }
         }
+      } else if (mode === 'connect' && connectFrom) {
+        const { cx, cy } = toCanvas(e.clientX, e.clientY)
+        const t = tempLine()
+        if (t) { t.setAttribute('x2', String(cx)); t.setAttribute('y2', String(cy)) }
+        const hit = nodeAt(cx, cy, connectFrom)
+        if ((hit?.id ?? null) !== boardHover) {
+          clearHover()
+          if (hit) { boardHover = hit.id; hit.el.style.outline = `2px solid ${ACCENT}`; hit.el.style.outlineOffset = '3px' }
+        }
       } else if (mode === 'pan') {
         tx.current = ox + dx; ty.current = oy + dy; applyTransform()
       }
     }
-    const onUp = () => {
+    const onUp = (e: MouseEvent) => {
+      if (mode === 'connect' && connectFrom) {
+        const t = tempLine(); if (t) t.style.display = 'none'
+        const { cx, cy } = toCanvas(e.clientX, e.clientY)
+        const target = nodeAt(cx, cy, connectFrom)
+        clearHover()
+        if (target && target.id !== connectFrom) {
+          boardEdgeMutRef.current.mutate({ slug: boardSlug!, from: connectFrom, to: target.id })
+          setEdgeEdit({ from: connectFrom, to: target.id, label: '' })  // offer to label it right away
+        }
+        mode = null; connectFrom = null; return
+      }
       if (mode === 'node' && el) {
         el.style.cursor = 'grab'
         el.style.transition = 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)'
@@ -636,6 +699,25 @@ export default function GraphDesk() {
                   <g stroke={ACCENT} strokeWidth="1.6">
                     {shownEdges.filter((e) => e.dim === 'pin').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
+                  {/* authored — connections you drew on a board (always shown; click to edit) */}
+                  <g style={{ pointerEvents: 'stroke' }}>
+                    {deskEdges.filter((e) => e.dim === 'authored').map((e, i) => (
+                      <g key={'a' + i}>
+                        <line data-from={e.from} data-to={e.to} stroke="transparent" strokeWidth="14" style={{ cursor: 'pointer' }}
+                          onClick={() => setEdgeEdit({ from: e.from, to: e.to, label: e.label || '' })} />
+                        <line data-from={e.from} data-to={e.to} stroke={INK} strokeWidth="2" style={{ pointerEvents: 'none' }} />
+                      </g>
+                    ))}
+                  </g>
+                  {/* authored edge labels, centred on the line */}
+                  <g style={{ pointerEvents: 'none' }}>
+                    {deskEdges.filter((e) => e.dim === 'authored' && e.label).map((e, i) => (
+                      <text key={'al' + i} data-from={e.from} data-to={e.to} textAnchor="middle" dominantBaseline="middle"
+                        style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 13, fill: INK, paintOrder: 'stroke', stroke: '#fbfaf8', strokeWidth: 5 }}>{e.label}</text>
+                    ))}
+                  </g>
+                  {/* temp line while dragging a new connection */}
+                  <line id="__connectTemp" stroke={ACCENT} strokeWidth="2" strokeDasharray="4 5" style={{ display: 'none', pointerEvents: 'none' }} />
                 </svg>
 
                 {!inBoard && lens === 'diary' && (() => {
@@ -667,6 +749,7 @@ export default function GraphDesk() {
                       else openNode(n.id)
                     }}
                     onRemove={inBoard ? () => boardItemMut.mutate({ slug: boardSlug!, nodeId: n.id, remove: true }) : undefined}
+                    connectable={inBoard}
                   />
                 ))}
               </div>
@@ -674,18 +757,31 @@ export default function GraphDesk() {
               {/* legend — what the lines mean */}
               <div style={{ position: 'absolute', left: 14, bottom: 14, zIndex: 5, background: 'rgba(251,250,248,.9)', border: '1px solid rgba(20,19,16,.22)', padding: '9px 12px', display: 'grid', gap: 5, fontFamily: 'Newsreader, serif', fontSize: 11, color: '#45413a' }}>
                 <div style={{ fontSize: 9, letterSpacing: '.16em', textTransform: 'uppercase', color: '#7d776b', paddingBottom: 2 }}>How things connect</div>
-                <LegendRow color={INK} dotted={false} label="Direct — made by, pinned" />
-                <LegendRow color={INK} dotted label="Shared kindred" faint />
-                <LegendRow color={LINE_AESTHETIC} dotted label="Kindred · aesthetic" />
-                <LegendRow color={LINE_REGION} dotted label="Kindred · where founded" />
-                <LegendRow color={LINE_PRICE} dotted label="Kindred · price point" />
+                {inBoard && <LegendRow color={INK} dotted={false} label="Your connection" />}
+                {(!inBoard || showKinship) && <>
+                  <LegendRow color={INK} dotted={false} label="Direct — made by, pinned" />
+                  <LegendRow color={INK} dotted label="Shared kindred" faint />
+                  <LegendRow color={LINE_AESTHETIC} dotted label="Kindred · aesthetic" />
+                  <LegendRow color={LINE_REGION} dotted label="Kindred · where founded" />
+                  <LegendRow color={LINE_PRICE} dotted label="Kindred · price point" />
+                </>}
               </div>
 
-              {inBoard && (
+              {inBoard && !edgeEdit && (
                 <BoardAddBar onAdd={(payload) => {
                   const n = deskNodes.length
                   addLocalMut.mutate({ slug: boardSlug!, ...payload, x: 260 + (n % 6) * 46, y: 170 + (n % 6) * 46 })
                 }} />
+              )}
+
+              {inBoard && edgeEdit && (
+                <EdgeEditor
+                  key={edgeEdit.from + edgeEdit.to}
+                  initial={edgeEdit.label}
+                  onSave={(label) => { boardEdgeMut.mutate({ slug: boardSlug!, from: edgeEdit.from, to: edgeEdit.to, label }); setEdgeEdit(null) }}
+                  onDelete={() => { boardEdgeMut.mutate({ slug: boardSlug!, from: edgeEdit.from, to: edgeEdit.to, remove: true }); setEdgeEdit(null) }}
+                  onClose={() => setEdgeEdit(null)}
+                />
               )}
             </div>
           ) : (
@@ -901,7 +997,7 @@ export default function GraphDesk() {
 }
 
 // ── node card ──
-function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove }: {
+function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable }: {
   node: GraphNode
   followed: boolean
   pinned: boolean
@@ -910,6 +1006,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   innerRef: (el: HTMLDivElement | null) => void
   onOpen: () => void
   onRemove?: () => void
+  connectable?: boolean
 }) {
   const isPattern = node.type === 'pattern'
   const isBoard = node.type === 'board'
@@ -939,6 +1036,10 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
           onClick={(e) => { e.stopPropagation(); onRemove() }}
           title="Remove from this board"
           style={{ position: 'absolute', top: -9, right: -9, width: 20, height: 20, borderRadius: '50%', border: `1px solid ${INK}`, background: '#fbfaf8', color: INK, cursor: 'pointer', fontSize: 12, lineHeight: '18px', padding: 0, zIndex: 3 }}>×</button>
+      )}
+      {connectable && (
+        <span data-connect={node.id} title="drag to connect" onClick={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', right: -8, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, borderRadius: '50%', background: '#fbfaf8', border: `2px solid ${ACCENT}`, cursor: 'crosshair', zIndex: 3 }} />
       )}
       {renderBody(node, count, suggested, followed)}
     </div>
@@ -1236,6 +1337,23 @@ function ListRow({ item, kindOf, onOpen }: { item: ListItem; kindOf: string; onO
         <div style={{ fontFamily: 'Newsreader, serif', fontSize: 12, color: '#7d776b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sub}</div>
       </div>
     </button>
+  )
+}
+
+// label / delete a manual connection you drew on a board.
+function EdgeEditor({ initial, onSave, onDelete, onClose }: { initial: string; onSave: (label: string) => void; onDelete: () => void; onClose: () => void }) {
+  const [label, setLabel] = useState(initial)
+  const btn: React.CSSProperties = { cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', padding: '6px 10px', fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#45413a' }
+  return (
+    <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 7, background: 'rgba(251,250,248,.98)', border: `1px solid ${INK}`, boxShadow: '0 4px 20px -12px rgba(20,19,16,.8)', padding: '8px 10px', display: 'flex', gap: 8, alignItems: 'center' }}>
+      <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: '#7d776b' }}>Connection</span>
+      <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSave(label.trim())}
+        placeholder="label — e.g. wear with, alt, the vibe"
+        style={{ border: 'none', borderBottom: `1px solid ${INK}`, background: 'none', padding: '5px 2px', fontFamily: 'Newsreader, serif', fontSize: 14, color: INK, outline: 'none', width: 220 }} />
+      <button onClick={() => onSave(label.trim())} style={{ ...btn, background: INK, color: '#fbfaf8', borderColor: INK }}>Save</button>
+      <button onClick={onDelete} style={{ ...btn, color: '#8f2f22', borderColor: 'rgba(143,47,34,.5)' }}>Delete</button>
+      <button onClick={onClose} style={{ ...btn, border: 'none', color: '#7d776b' }}>×</button>
+    </div>
   )
 }
 

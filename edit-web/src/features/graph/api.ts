@@ -136,6 +136,18 @@ export function useAddBoardLocal() {
   })
 }
 
+// Manual connections you draw on a board — create / relabel / delete (board-only).
+export function useBoardEdge() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ slug, from, to, label, remove }: { slug: string; from: string; to: string; label?: string; remove?: boolean }) => {
+      if (remove) { await api.delete(`/graph/board/${slug}/edges/`, { data: { from, to } }); return }
+      await api.post(`/graph/board/${slug}/edges/`, { from, to, label })
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['board-graph', v.slug] }),
+  })
+}
+
 // Persist a board's own arrangement (positions scoped to this board).
 export async function saveBoardPositions(slug: string, positions: Record<string, { x: number; y: number }>) {
   if (!Object.keys(positions).length) return

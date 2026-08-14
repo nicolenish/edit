@@ -1077,6 +1077,12 @@ def build_board_graph(slug: str) -> dict | None:
             if dim:
                 once(na, nb, "adjacent", True, dim, dashed=True)                # coloured, kindred
 
+    # your own drawn connections — authored, board-only, always shown (not gated by kinship)
+    for be in board.edges.all():
+        if be.from_node_id in node_id_set and be.to_node_id in node_id_set:
+            edges.append({"from": be.from_node_id, "to": be.to_node_id, "type": "connects",
+                          "derived": False, "dim": "authored", "label": be.label or ""})
+
     return {
         "board": {"slug": board.slug, "name": board.name, "description": board.description,
                   "tags": list(board.tags or []), "count": len(nodes),

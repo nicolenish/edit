@@ -181,6 +181,38 @@ def graph_board(request, slug):
     return Response(data)
 
 
+@api_view(["POST", "PATCH", "DELETE"])
+def graph_board_edges(request, slug):
+    """Manual connections you draw on a board (docs/graph-views.md B1). POST {from,to,label}
+    creates one; PATCH {from,to,label} relabels; DELETE {from,to} removes it. Board-only."""
+    from library.models import Board, BoardEdge
+
+    board = Board.objects.filter(slug=slug).first()
+    if not board:
+        return Response({"detail": "No such board"}, status=status.HTTP_404_NOT_FOUND)
+    data = request.data or {}
+    a, b = data.get("from"), data.get("to")
+    if not a or not b or a == b:
+        return Response({"detail": "from and to (distinct) are required"}, status=400)
+
+    if request.method == "DELETE":
+        BoardEdge.objects.filter(board=board, from_node_id=a, to_node_id=b).delete()
+        return Response({"removed": [a, b]})
+
+    label = (data.get("label") or "").strip()[:80]
+    if request.method == "PATCH":
+        BoardEdge.objects.filter(board=board, from_node_id=a, to_node_id=b).update(label=label)
+        return Response({"from": a, "to": b, "label": label})
+
+    edge, created = BoardEdge.objects.get_or_create(
+        board=board, from_node_id=a, to_node_id=b, defaults={"label": label})
+    if not created and label:
+        edge.label = label
+        edge.save(update_fields=["label"])
+    return Response({"from": a, "to": b, "label": edge.label},
+                    status=status.HTTP_201_CREATED if created else 200)
+
+
 @api_view(["POST"])
 def graph_board_local(request, slug):
     """Add board-only 'moodboard' content — a note / image / color / link that lives on

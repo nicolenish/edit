@@ -33,16 +33,17 @@ export interface GraphNode {
 
 // How a line reads: direct (solid membership), pattern (dotted neutral, a derived
 // trait), or a coloured dotted line for why two houses are kindred.
-export type EdgeDim = 'direct' | 'pin' | 'pattern' | 'aesthetic' | 'region' | 'price'
+export type EdgeDim = 'direct' | 'pin' | 'pattern' | 'aesthetic' | 'region' | 'price' | 'authored'
 
 export interface GraphEdge {
   from: string
   to: string
-  type: string // made-by | pinned-to | exhibits | embodies | adjacent | feeds
+  type: string // made-by | pinned-to | exhibits | embodies | adjacent | feeds | connects
   derived: boolean // false = structural (solid), true = inferred
   dim: EdgeDim // drives stroke style + colour
   weight?: number
   dashed?: boolean
+  label?: string // authored (board) edges: your freeform label
 }
 
 // The index (left rail) lists EVERYTHING, grouped; the desk (nodes) is a curated subset.

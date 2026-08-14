@@ -72,6 +72,25 @@ class BoardItem(models.Model):
         return f"{self.board.name} ← {self.node_id}"
 
 
+class BoardEdge(models.Model):
+    """A connection you draw yourself between two items on a board (docs/graph-views.md B1).
+    Boards are authored, not inferred — this is where you assert a relationship the system
+    can't ('wear with', 'alt', 'the vibe'). Board-only; never enters the main graph."""
+
+    board = models.ForeignKey(Board, related_name="edges", on_delete=models.CASCADE)
+    from_node_id = models.CharField(max_length=200)
+    to_node_id = models.CharField(max_length=200)
+    label = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("board", "from_node_id", "to_node_id")]
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.board.name}: {self.from_node_id} → {self.to_node_id}"
+
+
 class Clip(models.Model):
     """The capture inbox — anything you clip: a thought, an image, a link, a house or a
     piece. Claude classifies the `kind` on capture; it renders as that node type on the
