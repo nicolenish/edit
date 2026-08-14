@@ -487,7 +487,9 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
     pos = {}
     s_hw, s_hh = block_half(shared)
     pos.update(grid_at(shared, CX, CY))                    # shared core at the centre
-    regions = {a: [a] + excl[a] for a in anchors}          # each anchor leads its own block
+    # anchor sits in the MIDDLE of its own block (not the top), so the pole aligns vertically with
+    # the shared core — the whole desk then centres cleanly instead of stranding the top.
+    regions = {a: excl[a][:len(excl[a]) // 2] + [a] + excl[a][len(excl[a]) // 2:] for a in anchors}
     region_half = {a: block_half(regions[a]) for a in anchors}
     # with ≥3 poles, adjacent region blocks must also clear each other around the circle
     reach = max((math.hypot(hw, hh) for hw, hh in region_half.values()), default=0.0)

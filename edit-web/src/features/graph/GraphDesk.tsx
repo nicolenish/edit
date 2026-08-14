@@ -316,7 +316,8 @@ export default function GraphDesk() {
   const focusSig = graph && focusKey ? `${focusKey}:${sharedOnly}:${graph.nodes.length}` : ''
   useEffect(() => {
     if (!focusSig || isPlaceholderData) return
-    const id = requestAnimationFrame(() => {
+    let hold = 0, settle = 0
+    const raf = requestAnimationFrame(() => {
       // Cards animate their `left`/`top`, so offsetLeft reports the mid-flight position — fit()
       // would frame a moving target. Jump straight to the new layout (transition off), fit against
       // the settled positions, then restore the animation for later drags/folds.
@@ -324,9 +325,45 @@ export default function GraphDesk() {
       els.forEach((el) => { el.style.transition = 'none' })
       applyPositions(); fit(); fitted.current = true
       requestAnimationFrame(() => els.forEach((el) => { if (el.isConnected) el.style.transition = NODE_TRANSITION }))
+      // establishing shot → then push in to a comfortable reading zoom, since fitting a big
+      // compare whole makes every card tiny. Fit stays the "zoom out"; this frames the things
+      // being compared (the anchors) with breathing room — so they stay in view, just larger.
+      const stage = stageRef.current, pan = panRef.current
+      if (stage && pan && comparing) {   // only compares push in; single focus already frames well
+        hold = window.setTimeout(() => {
+          // bbox of everything, plus the anchors' centre — the anchors now sit mid-block, so the
+          // content centre ≈ the pole line. Push in toward that centre so the poles stay framed.
+          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+          let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity
+          Object.entries(nodeRefs.current).forEach(([id, el]) => {
+            if (!el) return
+            x0 = Math.min(x0, el.offsetLeft); y0 = Math.min(y0, el.offsetTop)
+            x1 = Math.max(x1, el.offsetLeft + el.offsetWidth); y1 = Math.max(y1, el.offsetTop + el.offsetHeight)
+            if (focusIds.includes(id)) {
+              ax0 = Math.min(ax0, el.offsetLeft); ay0 = Math.min(ay0, el.offsetTop)
+              ax1 = Math.max(ax1, el.offsetLeft + el.offsetWidth); ay1 = Math.max(ay1, el.offsetTop + el.offsetHeight)
+            }
+          })
+          if (!isFinite(x0) || !isFinite(ax0)) return
+          const w = stage.clientWidth, h = stage.clientHeight, PAD = 90
+          // centre on the whole content; zoom for readability but never past what keeps both poles
+          // (their farthest edge from centre) on screen.
+          const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+          const reachX = Math.max(Math.abs(ax0 - cx), Math.abs(ax1 - cx)) + 150
+          const reachY = Math.max(Math.abs(ay0 - cy), Math.abs(ay1 - cy)) + 150
+          const kPoles = Math.min((w / 2 - PAD) / reachX, (h / 2 - PAD) / reachY)
+          const k = Math.max(scale.current, Math.min(0.62, kPoles))
+          if (k <= scale.current + 0.01) return
+          pan.style.transition = 'transform .7s cubic-bezier(.2,.7,.2,1)'
+          tx.current = w / 2 - cx * k; ty.current = h / 2 - cy * k
+          scale.current = k
+          applyTransform()
+          settle = window.setTimeout(() => { if (panRef.current) panRef.current.style.transition = '' }, 720)
+        }, 340)
+      }
     })
-    return () => cancelAnimationFrame(id)
-  }, [focusSig, isPlaceholderData, applyPositions, fit])
+    return () => { cancelAnimationFrame(raf); clearTimeout(hold); clearTimeout(settle); if (panRef.current) panRef.current.style.transition = '' }
+  }, [focusSig, isPlaceholderData, applyPositions, fit, applyTransform, focusIds, comparing])
 
   // wire pan / zoom / drag once the stage is mounted (graph view only)
   useEffect(() => {
