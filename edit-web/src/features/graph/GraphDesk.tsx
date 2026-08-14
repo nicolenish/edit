@@ -39,10 +39,15 @@ export default function GraphDesk() {
   // which re-composes the desk to a slice (region / tier / aesthetic / kindred / state).
   const [activeLens, setActiveLens] = useState<Record<string, string[]>>({})
   const hasLens = Object.keys(activeLens).length > 0
-  // focus mode — isolate one node's neighbourhood (docs/graph-views.md A2)
-  const [focusId, setFocusId] = useState<string | null>(null)
+  // focus mode — isolate one node's neighbourhood, or hold several as poles (docs/multi-focus.md)
+  const [focusIds, setFocusIds] = useState<string[]>([])
   const [focusDepth, setFocusDepth] = useState(1)
-  const { data: graph, isLoading } = useGraph(focusId, hasLens ? activeLens : undefined, focusDepth)
+  const focusKey = focusIds.length ? focusIds.join(',') : null
+  const { data: graph, isLoading } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth)
+  // multi-focus is a fresh, transient view: it uses the server's Venn coords and neither reads
+  // nor writes the saved arrangement, so poles can't snap back to old main-desk positions.
+  const multiRef = useRef(false)
+  multiRef.current = focusIds.length > 1
   const lensesQ = useGraphLenses()
   const [view, setView] = useState<View>('graph')
   const listQ = useGraphList(view === 'list')
@@ -223,7 +228,7 @@ export default function GraphDesk() {
       displayNodesRef.current.forEach((n) => {
         const el = nodeRefs.current[n.id]
         if (!el) return
-        const p = posOverride.current[n.id] || [n.x, n.y]
+        const p = (!multiRef.current && posOverride.current[n.id]) || [n.x, n.y]
         el.style.left = `${p[0]}px`
         el.style.top = `${p[1]}px`
       })
@@ -424,6 +429,8 @@ export default function GraphDesk() {
           if (inBoard) {
             boardPos.current[nid] = xy
             saveBoardPositions(boardSlug!, { [nid]: { x: xy[0], y: xy[1] } })
+          } else if (multiRef.current) {
+            updateEdges()   // multi-focus: move live, but don't persist or disturb the main arrangement
           } else {
             posOverride.current[nid] = xy
             if (lens !== 'free') setLens('free')
@@ -457,11 +464,18 @@ export default function GraphDesk() {
     }
   }, [view, deskGraph, inBoard, boardSlug, fit, applyTransform, updateEdges, save, persistPositions, lens])
 
-  // focus mode — isolate a node's neighbourhood; expand walks further out; clear returns to the map
-  const focusOn = useCallback((id: string) => {
-    setOpen(null); setStudy(null); setFocusDepth(1); fitted.current = false; setFocusId(id)
+  // focus mode — isolate a node's neighbourhood; expand walks further out; clear returns to the map.
+  // `additive` (⌘/⇧-click) accumulates anchors into a multi-focus, toggling and capped at five.
+  const focusOn = useCallback((id: string, additive = false) => {
+    setOpen(null); setStudy(null); setFocusDepth(1); fitted.current = false
+    setFocusIds((cur) => {
+      if (!additive) return [id]
+      if (cur.includes(id)) return cur.filter((x) => x !== id)   // toggle off
+      return cur.length >= 5 ? cur : [...cur, id]                // cap at five poles
+    })
   }, [])
-  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setFocusId(null) }, [])
+  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setFocusIds([]) }, [])
+  const removeAnchor = useCallback((id: string) => { fitted.current = false; setFocusIds((cur) => cur.filter((x) => x !== id)) }, [])
   const expandFocus = useCallback(() => { fitted.current = false; setFocusDepth((d) => Math.min(3, d + 1)) }, [])
 
   useEffect(() => {
@@ -471,12 +485,12 @@ export default function GraphDesk() {
       if (e.key !== 'Escape') return
       if (study) { setStudy(null); return }
       if (open) { setOpen(null); return }
-      if (focusId) clearFocus()
+      if (focusIds.length) clearFocus()
     }
     window.addEventListener('resize', onResize)
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('keydown', onKey) }
-  }, [fit, study, open, focusId, clearFocus])
+  }, [fit, study, open, focusIds, clearFocus])
 
   // persist the lens choice (positions persist to the backend on drag)
   useEffect(() => { save() }, [save])
@@ -649,10 +663,11 @@ export default function GraphDesk() {
                   {!isCollapsed && shown.map((it) => {
                     counter += 1
                     return (
-                      <button key={it.id} onClick={() => {
+                      <button key={it.id} onClick={(e) => {
                         if (g.kind === 'board') enterBoard(it.id)
                         else if (inBoard) boardItemMut.mutate({ slug: boardSlug!, nodeId: it.id })
                         else if (study && g.kind === 'house') setStudy(it.id)  // switch the long view in place
+                        else if ((e.metaKey || e.shiftKey) && g.kind === 'house') focusOn(it.id, true)  // ⌘-click → compare
                         else focusFromIndex(it.id)
                       }} style={indexRow}
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#fffdf9')}
@@ -716,13 +731,16 @@ export default function GraphDesk() {
                   {graph.focus && (
                     <>
                       <span style={{ width: 1, height: 20, background: 'rgba(20,19,16,.2)', margin: '0 4px' }} />
-                      <span style={{ color: '#7d776b' }}>Focus</span>
-                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', background: 'rgba(143,67,49,.1)', color: ACCENT, border: `1px solid ${ACCENT}`, padding: '4px 9px', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-                        ◎ {graph.focus.label}
-                        <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>
-                        <button onClick={clearFocus} style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
-                      </span>
-                      {focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
+                      <span style={{ color: '#7d776b' }}>{graph.focus.anchors.length > 1 ? 'Compare' : 'Focus'}</span>
+                      {graph.focus.anchors.map((a) => (
+                        <span key={a.id} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', background: 'rgba(143,67,49,.1)', color: ACCENT, border: `1px solid ${ACCENT}`, padding: '4px 9px', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+                          ◎ {a.label}
+                          <button onClick={() => removeAnchor(a.id)} title="remove" style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
+                        </span>
+                      ))}
+                      <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>
+                      {graph.focus.anchors.length === 1 && focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
+                      {graph.focus.anchors.length === 1 && <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>⌘-click a house to compare</span>}
                       <button onClick={clearFocus} style={{ ...lensBtn(false), border: 'none', color: '#7d776b' }}>full map</button>
                     </>
                   )}
@@ -1128,6 +1146,10 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   if (isBoard) Object.assign(base, { backgroundImage: 'radial-gradient(rgba(20,19,16,.16) 1px, transparent 1px)', backgroundSize: '16px 16px' })
   if (node.type === 'cluster') Object.assign(base, { background: '#fff', cursor: 'pointer', boxShadow: '4px 4px 0 #fff, 5px 5px 0 rgba(20,19,16,.4), 8px 8px 0 #fff, 9px 9px 0 rgba(20,19,16,.25)' })
   if (highlighted && !isPattern) Object.assign(base, { outline: `1px solid ${ACCENT}`, outlineOffset: 4 })
+  // multi-focus: shared nodes (reached by ≥2 anchors) get emphasised — the overlap is the point;
+  // anchors read as heavier poles. Both win over the hover highlight.
+  if (node.shared && !node.anchor) Object.assign(base, { outline: `1.5px solid ${ACCENT}`, outlineOffset: 3, boxShadow: '3px 3px 0 rgba(143,67,49,.2)' })
+  if (node.anchor) Object.assign(base, { outline: `2px solid ${ACCENT}`, outlineOffset: 4, boxShadow: '4px 4px 0 rgba(143,67,49,.3)' })
 
   const showPinmark = pinned && !isPattern && !isBoard
 

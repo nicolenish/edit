@@ -281,7 +281,8 @@ def _board_matches_lens(board, lens, filtered_ids, brand_by_key):
 FOCUS_PIECES = 8        # pieces pulled in for a focused house / kindred
 FOCUS_PATTERNS = 4      # kindred nodes pulled in per piece
 FOCUS_KIN_HOUSES = 6    # kindred houses pulled in for a focused house
-FOCUS_CAP = 48          # neighbourhood size ceiling
+FOCUS_CAP = 48          # neighbourhood size ceiling (per anchor)
+FOCUS_MAX_ANCHORS = 5   # how many houses you can hold side by side (multi-focus)
 
 
 def _focus_members(focus_id, pieces, by_product, brands_by_key, depth):
@@ -328,31 +329,10 @@ def _focus_members(focus_id, pieces, by_product, brands_by_key, depth):
     return members
 
 
-def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, saved, depth):
-    """Resolve the focus neighbourhood into nodes + edges (positions: saved, else seeded)."""
+def _build_focus_nodes(members, place, by_product, brands_by_key, follow_date):
+    """Resolve a set of member node-ids into node dicts. `place(nid, kind)` yields (x, y).
+    Shared by single- and multi-focus so both read a node the same way."""
     from library.models import Clip as ClipModel
-
-    clip_house_id = None
-    if focus_id.startswith("clip:"):
-        members = {focus_id}
-        c0 = ClipModel.objects.filter(id=focus_id.split(":", 1)[1]).first()
-        if c0 and c0.brand:
-            b = (Brand.objects.filter(name__iexact=c0.brand).first()
-                 or Brand.objects.filter(name__icontains=c0.brand).first())
-            if b and b.key in brands_by_key:
-                clip_house_id = house_id(b)
-                members |= _focus_members(clip_house_id, pieces, by_product, brands_by_key, depth)
-    else:
-        members = _focus_members(focus_id, pieces, by_product, brands_by_key, depth)
-
-    counters = defaultdict(int)
-
-    def place(nid, kind):
-        if nid in saved:
-            return saved[nid]
-        i = counters[kind]; counters[kind] += 1
-        return _seed_xy(kind, i)
-
     nodes, member_pieces, member_houses, member_patterns = [], {}, {}, set()
     for nid in members:
         kind, _, rest = nid.partition(":")
@@ -389,7 +369,11 @@ def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, sa
                           "label": c.title or c.piece_name or (c.text[:40] if c.text else "Clipping"),
                           "subtitle": c.brand or "clipped", "tags": (c.tags or [])[:3], "image": c.image_url or None,
                           "date": _iso(c.created_at), "x": x, "y": y})
+    return nodes, member_pieces, member_houses, member_patterns
 
+
+def _build_focus_edges(nodes, member_pieces, member_houses, member_patterns, extra_direct=None):
+    """The focus edge set: pieces→house, pieces→shared pattern, house↔house kindred."""
     node_id_set = {n["id"] for n in nodes}
     edges, seen = [], set()
 
@@ -403,8 +387,8 @@ def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, sa
         for t in member_patterns:
             if t in tags:
                 once(nid, pattern_id(t), "exhibits", True, "pattern")
-    if clip_house_id:
-        once(focus_id, clip_house_id, "made-by", False, "direct")
+    for a, b in (extra_direct or []):
+        once(a, b, "made-by", False, "direct")
     hlist = list(member_houses.items())
     for i in range(len(hlist)):
         for j in range(i + 1, len(hlist)):
@@ -412,7 +396,99 @@ def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, sa
             dim = _house_kindred_dim(ba, bb)
             if dim:
                 once(na, nb, "adjacent", True, dim, dashed=True)
+    return edges
+
+
+def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, saved, depth):
+    """Resolve the focus neighbourhood into nodes + edges (positions: saved, else seeded)."""
+    from library.models import Clip as ClipModel
+
+    clip_house_id = None
+    if focus_id.startswith("clip:"):
+        members = {focus_id}
+        c0 = ClipModel.objects.filter(id=focus_id.split(":", 1)[1]).first()
+        if c0 and c0.brand:
+            b = (Brand.objects.filter(name__iexact=c0.brand).first()
+                 or Brand.objects.filter(name__icontains=c0.brand).first())
+            if b and b.key in brands_by_key:
+                clip_house_id = house_id(b)
+                members |= _focus_members(clip_house_id, pieces, by_product, brands_by_key, depth)
+    else:
+        members = _focus_members(focus_id, pieces, by_product, brands_by_key, depth)
+
+    counters = defaultdict(int)
+
+    def place(nid, kind):
+        if nid in saved:
+            return saved[nid]
+        i = counters[kind]; counters[kind] += 1
+        return _seed_xy(kind, i)
+
+    nodes, mp, mh, mpat = _build_focus_nodes(members, place, by_product, brands_by_key, follow_date)
+    extra = [(focus_id, clip_house_id)] if clip_house_id else None
+    edges = _build_focus_edges(nodes, mp, mh, mpat, extra_direct=extra)
     return {"nodes": nodes, "edges": edges}
+
+
+def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_date, saved, depth):
+    """Several anchors at once: union their neighbourhoods, tag the nodes shared by ≥2 of
+    them, and seed a Venn — anchors on poles, exclusive neighbours fanned out past their own
+    pole, shared nodes pulled toward the centre. Positions are seeds; drags still override."""
+    import math
+    anchors = list(dict.fromkeys(focus_ids))[:FOCUS_MAX_ANCHORS]   # de-dup, cap at 5
+    per = {a: _focus_members(a, pieces, by_product, brands_by_key, depth) for a in anchors}
+    anchor_set = set(anchors)
+    union = set().union(*per.values()) if per else set()
+    # which anchors reach each node — anchors themselves are poles, never "shared"
+    reached_by = {nid: [a for a in anchors if nid in per[a]] for nid in union}
+
+    n = len(anchors)
+    CX, CY, R = 980, 700, 560
+
+    def anchor_xy(i):
+        ang = math.pi if (n <= 2 and i == 0) else (0.0 if n <= 2 else -math.pi / 2 + 2 * math.pi * i / n)
+        return (CX + R * math.cos(ang), CY + R * math.sin(ang))
+
+    apos = {a: anchor_xy(i) for i, a in enumerate(anchors)}
+    grp = defaultdict(int)   # running index within each placement group, for scatter
+
+    # NB: multi-focus always lays out fresh — it deliberately ignores the desk's saved
+    # positions, or the poles would snap back to wherever a node last sat on the main map
+    # and the Venn would collapse. Drags are live but transient in this view.
+    def place(nid, kind):
+        if nid in apos:
+            return list(apos[nid])
+        S = [a for a in reached_by.get(nid, []) if a in apos]
+        if not S:
+            k = grp["free"]; grp["free"] += 1
+            return _seed_xy(kind, k)
+        k = grp[",".join(sorted(S))]; grp[",".join(sorted(S))] += 1
+        ang = k * 2.3999   # golden angle → an even scatter without a grid
+        if len(S) == 1:               # exclusive: sit past the anchor, away from centre
+            ax, ay = apos[S[0]]
+            vx, vy = ax - CX, ay - CY
+            L = math.hypot(vx, vy) or 1.0
+            bx, by = ax + (vx / L) * 175, ay + (vy / L) * 175
+            rad = 65 + 30 * (k // 6)
+        else:                          # shared: centroid of its anchors, pulled inward
+            bx = sum(apos[a][0] for a in S) / len(S) * 0.62 + CX * 0.38
+            by = sum(apos[a][1] for a in S) / len(S) * 0.62 + CY * 0.38
+            rad = 55 + 26 * (k % 7)
+        return [bx + rad * math.cos(ang), by + rad * math.sin(ang)]
+
+    nodes, mp, mh, mpat = _build_focus_nodes(union, place, by_product, brands_by_key, follow_date)
+    edges = _build_focus_edges(nodes, mp, mh, mpat)
+
+    for nd in nodes:                   # decorate poles + shared degree for the client
+        if nd["id"] in anchor_set:
+            nd["anchor"] = True
+        else:
+            deg = len(reached_by.get(nd["id"], []))
+            if deg >= 2:
+                nd["shared"] = deg
+
+    labels = {a: next((nd["label"] for nd in nodes if nd["id"] == a), a) for a in anchors}
+    return {"nodes": nodes, "edges": edges, "anchors": anchors, "labels": labels}
 
 
 # ── build the desk ──
@@ -640,17 +716,30 @@ def build_graph(focus: str | None = None, lens: dict | None = None, depth: int =
     for nid, ptag in clip_pattern_edges:
         once(nid, pattern_id(ptag), "exhibits", True, "pattern")
 
-    # ── focus mode: replace the desk with the focused node's neighbourhood (A2). The index
+    # ── focus mode: replace the desk with the focused node's neighbourhood (A2). One id is a
+    # single focus; a comma-separated set is multi-focus — anchors held side by side. The index
     # rail / stats below are unchanged, so you can still navigate and clear focus.
-    focused_on = None
-    if focus:
+    focus_meta = None
+    focus_ids = [f for f in (focus.split(",") if focus else []) if f]
+    if focus_ids:
         by_product_str = {str(pc.product.id): pc for pc in pieces}
         brands_by_key = {b.key: b for b in Brand.objects.all()}  # resolve any house, not just corpus ones
-        fg = _focus_subgraph(focus, pieces, by_product_str, brands_by_key, follow_date, saved, depth)
-        if fg["nodes"]:
-            nodes, edges = fg["nodes"], fg["edges"]
-            node_ids = {n["id"] for n in nodes}
-            focused_on = next((n["label"] for n in nodes if n["id"] == focus), None) or focus
+        if len(focus_ids) == 1:
+            fg = _focus_subgraph(focus_ids[0], pieces, by_product_str, brands_by_key, follow_date, saved, depth)
+            if fg["nodes"]:
+                nodes, edges = fg["nodes"], fg["edges"]
+                node_ids = {n["id"] for n in nodes}
+                label = next((n["label"] for n in nodes if n["id"] == focus_ids[0]), None) or focus_ids[0]
+                focus_meta = {"id": focus_ids[0], "label": label, "count": len(node_ids),
+                              "anchors": [{"id": focus_ids[0], "label": label}]}
+        else:
+            fg = _focus_subgraph_multi(focus_ids, pieces, by_product_str, brands_by_key, follow_date, saved, depth)
+            if fg["nodes"]:
+                nodes, edges = fg["nodes"], fg["edges"]
+                node_ids = {n["id"] for n in nodes}
+                anchors = fg["anchors"]
+                focus_meta = {"id": ",".join(anchors), "label": f"{len(anchors)} houses", "count": len(node_ids),
+                              "anchors": [{"id": a, "label": fg["labels"].get(a, a)} for a in anchors]}
 
     from library.models import DiaryEntry, Follow, Pin
 
@@ -710,7 +799,7 @@ def build_graph(focus: str | None = None, lens: dict | None = None, depth: int =
             "follows": Follow.objects.count(),
         },
         "openThread": open_thread,
-        "focus": ({"id": focus, "label": focused_on, "count": len(node_ids)} if focused_on else None),
+        "focus": focus_meta,
     }
 
 

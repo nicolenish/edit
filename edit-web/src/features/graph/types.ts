@@ -26,6 +26,8 @@ export interface GraphNode {
   suggested?: boolean
   weight?: number // pattern strength (count)
   count?: number // cluster: how many nodes it folds
+  anchor?: boolean // multi-focus: this node is one of the pinned poles
+  shared?: number // multi-focus: reached by this many anchors (≥2 → highlighted)
   color?: string // swatch: the hex
   url?: string // link: the href
   date?: string | null // ISO — when it entered your world; drives the "by day clipped" lens
@@ -74,7 +76,7 @@ export interface GraphResponse {
   index: GraphIndex
   stats: { pinned: number; follows: number }
   openThread: { label: string; nodeId: string } | null
-  focus: { id: string; label: string; count: number } | null
+  focus: { id: string; label: string; count: number; anchors: { id: string; label: string }[] } | null
 }
 
 // Lenses — facet slices the desk can filter to (docs/graph-views.md A1).
