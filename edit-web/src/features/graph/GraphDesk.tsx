@@ -1373,6 +1373,7 @@ const LENS_FACETS: { key: keyof GraphLenses; label: string }[] = [
 ]
 function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: Record<string, string[]>; onChange: (a: Record<string, string[]>) => void }) {
   const [picker, setPicker] = useState(false)
+  const [pickerQ, setPickerQ] = useState('')   // search across all lens options
   const [saving, setSaving] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saved, setSaved] = useState<SavedLens[]>(loadSavedLenses)
@@ -1395,7 +1396,7 @@ function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: R
           <button onClick={() => toggle(k, v)} style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
         </span>
       )))}
-      <button onClick={() => setPicker((p) => !p)} style={chip}>{activeKeys.length ? '＋' : 'All ▾'}</button>
+      <button onClick={() => { setPickerQ(''); setPicker((p) => !p) }} style={chip}>{activeKeys.length ? '＋' : 'All ▾'}</button>
       {activeKeys.length > 0 && <button onClick={() => onChange({})} style={{ ...chip, border: 'none', color: '#7d776b' }}>clear</button>}
       {activeKeys.length > 0 && !saving && <button onClick={() => { setSaving(true); setSaveName('') }} style={{ ...chip, border: 'none', color: ACCENT }}>save view</button>}
       {saving && (
@@ -1413,17 +1414,24 @@ function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: R
           <button onClick={() => persist(saved.filter((_, j) => j !== i))} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#a09a8d', padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
         </span>
       ))}
-      {picker && lenses && (
-        <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 20, background: '#fbfaf8', border: `1px solid ${INK}`, boxShadow: '0 8px 30px -14px rgba(20,19,16,.9)', padding: 12, display: 'grid', gap: 10, minWidth: 260, maxHeight: 380, overflow: 'auto' }}>
-          <div style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, color: '#7d776b', margin: '-2px 0 2px' }}>pick as many as you like — done when you close</div>
+      {picker && lenses && (() => {
+        const q = pickerQ.trim().toLowerCase()
+        const TOP = 12  // default slice per facet; searching reveals the rest
+        return (
+        <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 20, background: '#fbfaf8', border: `1px solid ${INK}`, boxShadow: '0 8px 30px -14px rgba(20,19,16,.9)', padding: 12, display: 'grid', gap: 10, minWidth: 380, maxHeight: 420, overflow: 'auto' }}>
+          <input autoFocus value={pickerQ} onChange={(e) => setPickerQ(e.target.value)} placeholder="search all lenses…"
+            style={{ width: '100%', border: '1px solid rgba(20,19,16,.28)', background: '#fff', padding: '6px 8px', fontFamily: 'Newsreader, serif', fontSize: 13, color: INK, outline: 'none' }} />
+          <div style={{ fontFamily: "'Reenie Beanie', cursive", fontSize: 16, lineHeight: 1, color: '#a09a8d', margin: '-2px 0 0' }}>pick as many as you like — done when you close</div>
           {LENS_FACETS.map(({ key, label }) => {
-            const opts = lenses[key] || []
-            if (!opts.length) return null
+            const all = lenses[key] || []
+            const matched = q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all
+            const shown = q ? matched : matched.slice(0, TOP)
+            if (!shown.length) return null
             return (
               <div key={key}>
                 <div style={{ fontFamily: 'Newsreader, serif', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: '#7d776b', paddingBottom: 5 }}>{label}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {opts.map((o) => {
+                  {shown.map((o) => {
                     const on = (active[key] || []).includes(o.value)
                     return (
                       <button key={o.value} onClick={() => toggle(key, o.value)}
@@ -1432,13 +1440,20 @@ function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: R
                       </button>
                     )
                   })}
+                  {!q && matched.length > TOP && (
+                    <span style={{ fontFamily: "'Reenie Beanie', cursive", fontSize: 16, color: '#a09a8d', alignSelf: 'center', paddingLeft: 2 }}>+{matched.length - TOP} more — search to find them</span>
+                  )}
                 </div>
               </div>
             )
           })}
+          {q && LENS_FACETS.every(({ key }) => !(lenses[key] || []).some((o) => o.label.toLowerCase().includes(q))) && (
+            <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 13, color: '#7d776b' }}>No lens by that name.</div>
+          )}
           <button onClick={() => setPicker(false)} style={{ ...chip, justifySelf: 'start', marginTop: 2 }}>Done</button>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

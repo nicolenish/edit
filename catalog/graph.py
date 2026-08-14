@@ -619,8 +619,9 @@ def build_graph_lenses() -> dict:
     return {
         "region": rows(regions),
         "tier": [{"value": t, "label": TIER_LABEL.get(t, t.title()), "count": n} for t, n in tiers.most_common()],
-        "aesthetic": rows(aesthetics, 12),
-        "kindred": [{"value": p.tag, "label": p.label, "count": p.weight} for p in derive_patterns(pieces)[:12]],
+        # full sets — the picker shows a top slice by default and searches across all of these
+        "aesthetic": rows(aesthetics),
+        "kindred": [{"value": p.tag, "label": p.label, "count": p.weight} for p in derive_patterns(pieces)],
         "state": [{"value": "pinned", "label": "Pinned", "count": pinned},
                   {"value": "recent", "label": "This month", "count": recent}],
     }
