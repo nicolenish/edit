@@ -10,6 +10,7 @@ const NODE_TRANSITION = 'left .75s cubic-bezier(.22,.7,.2,1), top .75s cubic-bez
 const styleX = (el: HTMLElement) => { const v = parseFloat(el.style.left); return isNaN(v) ? el.offsetLeft : v }
 const styleY = (el: HTMLElement) => { const v = parseFloat(el.style.top); return isNaN(v) ? el.offsetTop : v }
 const KEY = 'nishi.desk.v1'
+const MET_KEY = 'nishi.met.v1'   // houses you've opened/focused — persisted client-side
 const STRIPE = 'repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px)'
 const ACCENT = '#8f4331' // terracotta — UI accent (buttons, pins)
 const INK = '#141310'
@@ -43,6 +44,13 @@ export default function GraphDesk() {
   // which re-composes the desk to a slice (region / tier / aesthetic / kindred / state).
   const [activeLens, setActiveLens] = useState<Record<string, string[]>>({})
   const hasLens = Object.keys(activeLens).length > 0
+  // houses you've actually opened/focused/compared — so unmet ones can be marked "new to you"
+  // and you can wander the graph toward houses you haven't met yet (docs: discovery via kindred).
+  const [met, setMet] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem(MET_KEY) || '[]')) } catch { return new Set() } })
+  const markMet = useCallback((id: string) => {
+    if (!id?.startsWith('house:')) return
+    setMet((prev) => { if (prev.has(id)) return prev; const nx = new Set(prev); nx.add(id); localStorage.setItem(MET_KEY, JSON.stringify([...nx])); return nx })
+  }, [])
   // focus mode — isolate one node's neighbourhood, or hold several as poles (docs/multi-focus.md).
   // `focusIds` holds the set; `compareMode` distinguishes a comparison SELECTION (which stays on the
   // full map until you've picked a second house, so you can keep choosing) from a single focus.
@@ -571,19 +579,19 @@ export default function GraphDesk() {
   // focus mode — isolate ONE node's neighbourhood; expand walks further out; clear returns to the map.
   const focusOn = useCallback((id: string) => {
     setOpen(null); setStudy(null); setFocusDepth(1); fitted.current = false
-    setCompareMode(false); setSharedOnly(false); setFocusIds([id])
-  }, [])
+    setCompareMode(false); setSharedOnly(false); setFocusIds([id]); markMet(id)
+  }, [markMet])
   // compare — toggle a house in the comparison selection (cap 5). One pick stays on the full map;
   // two or more render the Venn. Only refit when the desk actually crosses that threshold.
   const toggleCompare = useCallback((id: string) => {
-    setOpen(null); setStudy(null); setFocusDepth(1)
+    setOpen(null); setStudy(null); setFocusDepth(1); markMet(id)
     setCompareMode(true)
     setFocusIds((cur) => {
       const next = cur.includes(id) ? cur.filter((x) => x !== id) : (cur.length >= 5 ? cur : [...cur, id])
       if (next.length >= 2 || cur.length >= 2) fitted.current = false
       return next
     })
-  }, [])
+  }, [markMet])
   const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setCompareMode(false); setSharedOnly(false); setFocusIds([]) }, [])
   const toggleSharedOnly = useCallback(() => { fitted.current = false; setSharedOnly((s) => !s) }, [])
   const removeAnchor = useCallback((id: string) => {
@@ -612,15 +620,15 @@ export default function GraphDesk() {
   // ── handlers ──
   const openNode = useCallback((id: string) => {
     if (dragged.current) { dragged.current = false; return }
-    setOpen(id)
+    setOpen(id); markMet(id)
     setTimeout(() => focusNode(id), 20)
-  }, [focusNode])
+  }, [focusNode, markMet])
 
   const focusFromIndex = useCallback((id: string) => {
     if (view !== 'graph') setView('graph')
-    setOpen(id)
+    setOpen(id); markMet(id)
     setTimeout(() => focusNode(id), 60)
-  }, [view, focusNode])
+  }, [view, focusNode, markMet])
 
   // opening a board switches the desk into *that board's own graph* — only its items,
   // freely arranged, lines between them — not a modal, not a filter of the total desk.
@@ -778,6 +786,8 @@ export default function GraphDesk() {
                     {g.key === 'boards' && !searching ? (
                       <span onClick={(e) => { e.stopPropagation(); setCompose(true); setOpen(null); setStudy(null) }}
                         style={{ cursor: 'pointer', letterSpacing: '.18em', textTransform: 'uppercase', color: ACCENT }}>+ new</span>
+                    ) : g.key === 'houses' && !searching ? (
+                      <span title={`you've opened ${met.size} of ${all.length} houses`}><span style={{ color: INK }}>{met.size}</span><span style={{ color: '#c2bbac' }}>/{all.length}</span></span>
                     ) : (
                       <span>{all.length}</span>
                     )}
@@ -794,7 +804,12 @@ export default function GraphDesk() {
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#fffdf9')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}>
                         <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d', fontVariantNumeric: 'tabular-nums' }}>{String(counter).padStart(2, '0')}</span>
-                        <span style={{ fontFamily: 'Newsreader, serif', fontSize: 12.5, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                          {g.kind === 'house' && it.id.startsWith('house:') && !met.has(it.id) && (
+                            <span title="new to you — you haven't opened this house yet" style={{ flex: '0 0 auto', width: 5, height: 5, borderRadius: '50%', background: ACCENT }} />
+                          )}
+                          <span style={{ fontFamily: 'Newsreader, serif', fontSize: 12.5, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
+                        </span>
                         {(g.kind === 'house' || g.kind === 'pattern') && (
                           <span style={{ display: 'inline-flex', gap: 7, alignItems: 'center', justifySelf: 'end' }}>
                             <span className={'cmp-add' + (compareMode && focusIds.includes(it.id) ? ' on' : '')} role="button"
@@ -984,6 +999,7 @@ export default function GraphDesk() {
                     onFocus={!inBoard && (n.type === 'house' || n.type === 'pattern') ? () => focusOn(n.id) : undefined}
                     onCompare={!inBoard && (n.type === 'house' || n.type === 'pattern') ? () => toggleCompare(n.id) : undefined}
                     inCompare={compareMode && focusIds.includes(n.id)}
+                    isNew={!inBoard && n.type === 'house' && !met.has(n.id)}
                   />
                 ))}
               </div>
@@ -1222,7 +1238,7 @@ export default function GraphDesk() {
             <HouseStudy
               study={studyData.data}
               onClose={() => setStudy(null)}
-              onOpenHouse={(id) => setStudy(id)}
+              onOpenHouse={(id) => { setStudy(id); markMet(id) }}
               onOpenNode={(id) => { setStudy(null); openNode(id) }}
             />
           )}
@@ -1258,7 +1274,7 @@ export default function GraphDesk() {
 }
 
 // ── node card ──
-function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable, onFocus, onCompare, inCompare }: {
+function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable, onFocus, onCompare, inCompare, isNew }: {
   node: GraphNode
   followed: boolean
   pinned: boolean
@@ -1271,6 +1287,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   onFocus?: () => void   // house cards: isolate this house (single focus)
   onCompare?: () => void // house cards: toggle this house in the comparison set
   inCompare?: boolean    // house cards: currently an anchor in the comparison set
+  isNew?: boolean        // house cards: you haven't opened this house yet ("new to you")
 }) {
   const [hover, setHover] = useState(false)
   const isPattern = node.type === 'pattern'
@@ -1309,6 +1326,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
     <div ref={innerRef} data-node={node.id} onClick={onOpen} style={base}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       {showPinmark && <span style={{ position: 'absolute', top: -5, right: -5, width: 10, height: 10, background: ACCENT }} />}
+      {isNew && !hover && <span title="New to you — you haven't opened this house yet" style={{ position: 'absolute', top: -5, left: -5, width: 9, height: 9, borderRadius: '50%', background: ACCENT, border: '1.5px solid #fbfaf8', zIndex: 3 }} />}
       {hover && onFocus && (
         <button onMouseDown={stop} onClick={(e) => { stop(e); onFocus() }} title="Focus — isolate this house"
           style={{ ...cornerBtn, left: -6 }}>◎ focus</button>
