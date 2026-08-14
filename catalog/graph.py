@@ -277,8 +277,146 @@ def _board_matches_lens(board, lens, filtered_ids, brand_by_key):
     return False
 
 
+# ── focus mode: isolate one node's neighbourhood, walked out from the corpus (A2) ──
+FOCUS_PIECES = 8        # pieces pulled in for a focused house / kindred
+FOCUS_PATTERNS = 4      # kindred nodes pulled in per piece
+FOCUS_KIN_HOUSES = 6    # kindred houses pulled in for a focused house
+FOCUS_CAP = 48          # neighbourhood size ceiling
+
+
+def _focus_members(focus_id, pieces, by_product, brands_by_key, depth):
+    """BFS out from the focus node over the corpus (not the capped desk) to `depth` hops,
+    so focusing a house shows its actual pieces + kindred, even beyond the desk."""
+    by_house = defaultdict(list)
+    for pc in pieces:
+        by_house[pc.brand.key].append(pc)
+
+    def pat_tags(pc):
+        return [t for t in pc.tags if t.split(":", 1)[0] not in FACET_DIMS][:FOCUS_PATTERNS]
+
+    def neighbors(nid):
+        kind, _, rest = nid.partition(":")
+        out = []
+        if kind == "house":
+            for pc in by_house.get(rest, [])[:FOCUS_PIECES]:
+                out.append(piece_id(pc.product))
+                out += [pattern_id(t) for t in pat_tags(pc)]
+            b = brands_by_key.get(rest)
+            if b:
+                aes = {t.lower() for t in (b.tags or [])} - REGION_TAGS
+                kin = [k for k, bb in brands_by_key.items()
+                       if k != rest and ({t.lower() for t in (bb.tags or [])} & aes)]
+                out += [house_id_from_key(k) for k in kin[:FOCUS_KIN_HOUSES]]
+        elif kind == "piece":
+            pc = by_product.get(rest)
+            if pc:
+                out.append(house_id(pc.brand))
+                out += [pattern_id(t) for t in pat_tags(pc)]
+        elif kind == "pattern":
+            for pc in [p for p in pieces if rest in p.tags][:FOCUS_PIECES]:
+                out.append(piece_id(pc.product)); out.append(house_id(pc.brand))
+        return out
+
+    members, frontier = {focus_id}, [focus_id]
+    for _ in range(max(1, depth)):
+        nxt = []
+        for nid in frontier:
+            for nb in neighbors(nid):
+                if nb not in members and len(members) < FOCUS_CAP:
+                    members.add(nb); nxt.append(nb)
+        frontier = nxt
+    return members
+
+
+def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, saved, depth):
+    """Resolve the focus neighbourhood into nodes + edges (positions: saved, else seeded)."""
+    from library.models import Clip as ClipModel
+
+    clip_house_id = None
+    if focus_id.startswith("clip:"):
+        members = {focus_id}
+        c0 = ClipModel.objects.filter(id=focus_id.split(":", 1)[1]).first()
+        if c0 and c0.brand:
+            b = (Brand.objects.filter(name__iexact=c0.brand).first()
+                 or Brand.objects.filter(name__icontains=c0.brand).first())
+            if b and b.key in brands_by_key:
+                clip_house_id = house_id(b)
+                members |= _focus_members(clip_house_id, pieces, by_product, brands_by_key, depth)
+    else:
+        members = _focus_members(focus_id, pieces, by_product, brands_by_key, depth)
+
+    counters = defaultdict(int)
+
+    def place(nid, kind):
+        if nid in saved:
+            return saved[nid]
+        i = counters[kind]; counters[kind] += 1
+        return _seed_xy(kind, i)
+
+    nodes, member_pieces, member_houses, member_patterns = [], {}, {}, set()
+    for nid in members:
+        kind, _, rest = nid.partition(":")
+        if kind == "piece":
+            pc = by_product.get(rest)
+            if not pc:
+                continue
+            x, y = place(nid, "piece")
+            nodes.append({"id": nid, "type": "piece", "label": pc.product.title, "subtitle": pc.brand.name,
+                          "tags": _pills_from_tags(pc.tags), "image": pc.product.image_url or None,
+                          "date": _iso(pc.date), "x": x, "y": y})
+            member_pieces[nid] = (pc.product, set(pc.tags), pc.brand)
+        elif kind == "house":
+            b = brands_by_key.get(rest)
+            if not b:
+                continue
+            x, y = place(nid, "house")
+            nodes.append({"id": nid, "type": "house", "label": b.name, "subtitle": b.city or "",
+                          "tags": (b.tags or [])[:2], "image": b.hero_image_url or None, "followed": b.key in follow_date,
+                          "date": _iso(follow_date.get(b.key)), "x": x, "y": y})
+            member_houses[nid] = b
+        elif kind == "pattern":
+            x, y = place(nid, "pattern")
+            nodes.append({"id": nid, "type": "pattern", "label": humanize(rest), "subtitle": "kindred",
+                          "tags": [], "image": None, "date": None, "x": x, "y": y})
+            member_patterns.add(rest)
+        elif kind == "clip":
+            c = ClipModel.objects.filter(id=rest).first()
+            if not c:
+                continue
+            _KT = {"note": "note", "clip": "clipping", "piece": "piece", "house": "house"}
+            x, y = place(nid, "note")
+            nodes.append({"id": nid, "type": _KT.get(c.kind, "note"),
+                          "label": c.title or c.piece_name or (c.text[:40] if c.text else "Clipping"),
+                          "subtitle": c.brand or "clipped", "tags": (c.tags or [])[:3], "image": c.image_url or None,
+                          "date": _iso(c.created_at), "x": x, "y": y})
+
+    node_id_set = {n["id"] for n in nodes}
+    edges, seen = [], set()
+
+    def once(a, b, etype, derived, dim, **kw):
+        if a not in node_id_set or b not in node_id_set or a == b or (a, b, etype) in seen:
+            return
+        seen.add((a, b, etype)); edges.append({"from": a, "to": b, "type": etype, "derived": derived, "dim": dim, **kw})
+
+    for nid, (p, tags, brand) in member_pieces.items():
+        once(nid, house_id(brand), "made-by", False, "direct")
+        for t in member_patterns:
+            if t in tags:
+                once(nid, pattern_id(t), "exhibits", True, "pattern")
+    if clip_house_id:
+        once(focus_id, clip_house_id, "made-by", False, "direct")
+    hlist = list(member_houses.items())
+    for i in range(len(hlist)):
+        for j in range(i + 1, len(hlist)):
+            (na, ba), (nb, bb) = hlist[i], hlist[j]
+            dim = _house_kindred_dim(ba, bb)
+            if dim:
+                once(na, nb, "adjacent", True, dim, dashed=True)
+    return {"nodes": nodes, "edges": edges}
+
+
 # ── build the desk ──
-def build_graph(focus: str | None = None, lens: dict | None = None) -> dict:
+def build_graph(focus: str | None = None, lens: dict | None = None, depth: int = 1) -> dict:
     pieces, boards, follow_date = _load_corpus()
     pieces = _apply_lens(pieces, lens)
     # under a lens, clips / boards / suggestions must also match it — else they leak across
@@ -502,6 +640,18 @@ def build_graph(focus: str | None = None, lens: dict | None = None) -> dict:
     for nid, ptag in clip_pattern_edges:
         once(nid, pattern_id(ptag), "exhibits", True, "pattern")
 
+    # ── focus mode: replace the desk with the focused node's neighbourhood (A2). The index
+    # rail / stats below are unchanged, so you can still navigate and clear focus.
+    focused_on = None
+    if focus:
+        by_product_str = {str(pc.product.id): pc for pc in pieces}
+        brands_by_key = {b.key: b for b in Brand.objects.all()}  # resolve any house, not just corpus ones
+        fg = _focus_subgraph(focus, pieces, by_product_str, brands_by_key, follow_date, saved, depth)
+        if fg["nodes"]:
+            nodes, edges = fg["nodes"], fg["edges"]
+            node_ids = {n["id"] for n in nodes}
+            focused_on = next((n["label"] for n in nodes if n["id"] == focus), None) or focus
+
     from library.models import DiaryEntry, Follow, Pin
 
     # ── the index — the left rail. With no lens it's the FULL catalogue; under a lens it
@@ -560,7 +710,7 @@ def build_graph(focus: str | None = None, lens: dict | None = None) -> dict:
             "follows": Follow.objects.count(),
         },
         "openThread": open_thread,
-        "focus": focus if focus in node_ids else None,
+        "focus": ({"id": focus, "label": focused_on, "count": len(node_ids)} if focused_on else None),
     }
 
 

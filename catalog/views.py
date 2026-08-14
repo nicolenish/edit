@@ -126,7 +126,11 @@ def graph(request):
     # each facet may carry multiple comma-separated values (OR within, AND across facets)
     lens = {k: [v for v in request.GET[k].split(",") if v]
             for k in ("region", "tier", "aesthetic", "kindred", "state") if request.GET.get(k)}
-    return Response(graphlib.build_graph(focus=request.GET.get("focus"), lens=lens or None))
+    try:
+        depth = max(1, min(3, int(request.GET.get("depth", 1))))
+    except (TypeError, ValueError):
+        depth = 1
+    return Response(graphlib.build_graph(focus=request.GET.get("focus"), lens=lens or None, depth=depth))
 
 
 @api_view(["GET"])

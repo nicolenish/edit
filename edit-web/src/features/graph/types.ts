@@ -72,7 +72,7 @@ export interface GraphResponse {
   index: GraphIndex
   stats: { pinned: number; follows: number }
   openThread: { label: string; nodeId: string } | null
-  focus: string | null
+  focus: { id: string; label: string; count: number } | null
 }
 
 // Lenses — facet slices the desk can filter to (docs/graph-views.md A1).

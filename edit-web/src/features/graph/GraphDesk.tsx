@@ -39,7 +39,10 @@ export default function GraphDesk() {
   // which re-composes the desk to a slice (region / tier / aesthetic / kindred / state).
   const [activeLens, setActiveLens] = useState<Record<string, string[]>>({})
   const hasLens = Object.keys(activeLens).length > 0
-  const { data: graph, isLoading } = useGraph(undefined, hasLens ? activeLens : undefined)
+  // focus mode — isolate one node's neighbourhood (docs/graph-views.md A2)
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const [focusDepth, setFocusDepth] = useState(1)
+  const { data: graph, isLoading } = useGraph(focusId, hasLens ? activeLens : undefined, focusDepth)
   const lensesQ = useGraphLenses()
   const [view, setView] = useState<View>('graph')
   const listQ = useGraphList(view === 'list')
@@ -410,13 +413,26 @@ export default function GraphDesk() {
     }
   }, [view, deskGraph, inBoard, boardSlug, fit, applyTransform, updateEdges, save, persistPositions, lens])
 
+  // focus mode — isolate a node's neighbourhood; expand walks further out; clear returns to the map
+  const focusOn = useCallback((id: string) => {
+    setOpen(null); setStudy(null); setFocusDepth(1); fitted.current = false; setFocusId(id)
+  }, [])
+  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setFocusId(null) }, [])
+  const expandFocus = useCallback(() => { fitted.current = false; setFocusDepth((d) => Math.min(3, d + 1)) }, [])
+
   useEffect(() => {
     const onResize = () => fit()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setStudy((s) => { if (s) return null; setOpen(null); return null }) }
+    // Esc peels back one layer: study → detail panel → focus mode
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (study) { setStudy(null); return }
+      if (open) { setOpen(null); return }
+      if (focusId) clearFocus()
+    }
     window.addEventListener('resize', onResize)
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('keydown', onKey) }
-  }, [fit])
+  }, [fit, study, open, focusId, clearFocus])
 
   // persist the lens choice (positions persist to the backend on drag)
   useEffect(() => { save() }, [save])
@@ -653,6 +669,19 @@ export default function GraphDesk() {
                   <button onClick={() => switchLens('diary')} style={lensBtn(lens === 'diary')}>By day clipped</button>
                   <span style={{ width: 1, height: 20, background: 'rgba(20,19,16,.2)', margin: '0 4px' }} />
                   <LensBar lenses={lensesQ.data} active={activeLens} onChange={(a) => { fitted.current = false; setActiveLens(a) }} />
+                  {graph.focus && (
+                    <>
+                      <span style={{ width: 1, height: 20, background: 'rgba(20,19,16,.2)', margin: '0 4px' }} />
+                      <span style={{ color: '#7d776b' }}>Focus</span>
+                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', background: 'rgba(143,67,49,.1)', color: ACCENT, border: `1px solid ${ACCENT}`, padding: '4px 9px', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+                        ◎ {graph.focus.label}
+                        <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>
+                        <button onClick={clearFocus} style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
+                      </span>
+                      {focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
+                      <button onClick={clearFocus} style={{ ...lensBtn(false), border: 'none', color: '#7d776b' }}>full map</button>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -911,6 +940,15 @@ export default function GraphDesk() {
                 </div>
 
                 {detail.data.clip && <ClipEditor clip={detail.data.clip} boards={graph.index.boards} onClose={() => setOpen(null)} />}
+
+                {open && ['house', 'piece', 'pattern', 'clipping'].includes(detail.data.type) && (
+                  <button onClick={() => focusOn(open)}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = INK; e.currentTarget.style.color = '#fbfaf8' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = INK }}
+                    style={{ width: '100%', cursor: 'pointer', marginTop: 18, background: 'none', color: INK, border: `1px solid ${INK}`, padding: 11, ...uppercase, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.16em' }}>
+                    ◎ Focus the desk on this
+                  </button>
+                )}
 
                 <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 21, padding: '22px 0 4px' }}>Connected to</div>
                 {detail.data.connected.map((l) => (
