@@ -649,8 +649,8 @@ export default function GraphDesk() {
 
         {/* ── index of everything ── */}
         <aside style={{ borderRight: `1px solid ${INK}`, display: 'flex', flexDirection: 'column', minHeight: 0, background: '#f6f4ef' }}>
-          {/* the compare ＋ on a house row is hidden until you hover it (or it's already an anchor) */}
-          <style>{`.idx-house .cmp-add{opacity:0;transition:opacity .12s ease}.idx-house:hover .cmp-add{opacity:1}.idx-house .cmp-add.on{opacity:1}`}</style>
+          {/* the compare ＋ on a house/kindred row is hidden until you hover it (or it's already an anchor) */}
+          <style>{`.idx-cmp .cmp-add{opacity:0;transition:opacity .12s ease}.idx-cmp:hover .cmp-add{opacity:1}.idx-cmp .cmp-add.on{opacity:1}`}</style>
           <div style={{ padding: '11px 13px 10px', borderBottom: '1px solid rgba(20,19,16,.28)' }}>
             <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 16, paddingBottom: 9 }}>Index of everything</div>
             <div style={{ position: 'relative' }}>
@@ -692,23 +692,23 @@ export default function GraphDesk() {
                         else if (inBoard) boardItemMut.mutate({ slug: boardSlug!, nodeId: it.id })
                         else if (study && g.kind === 'house') setStudy(it.id)  // switch the long view in place
                         else focusFromIndex(it.id)
-                      }} className={g.kind === 'house' ? 'idx-house' : undefined} style={indexRow}
+                      }} className={(g.kind === 'house' || g.kind === 'pattern') ? 'idx-cmp' : undefined} style={indexRow}
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#fffdf9')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}>
                         <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d', fontVariantNumeric: 'tabular-nums' }}>{String(counter).padStart(2, '0')}</span>
                         <span style={{ fontFamily: 'Newsreader, serif', fontSize: 12.5, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
-                        {g.kind === 'house' && (
+                        {(g.kind === 'house' || g.kind === 'pattern') && (
                           <span style={{ display: 'inline-flex', gap: 7, alignItems: 'center', justifySelf: 'end' }}>
                             <span className={'cmp-add' + (compareMode && focusIds.includes(it.id) ? ' on' : '')} role="button"
                               title={compareMode && focusIds.includes(it.id) ? 'Remove from compare' : 'Add to compare'}
                               onMouseDown={(e) => e.stopPropagation()}
                               onClick={(e) => { e.stopPropagation(); toggleCompare(it.id) }}
                               style={{ cursor: 'pointer', color: ACCENT, fontFamily: 'Newsreader, serif', fontSize: 14, lineHeight: 1, width: 12, textAlign: 'center' }}>{compareMode && focusIds.includes(it.id) ? '−' : '＋'}</span>
-                            <span title={it.followed ? 'following' : 'suggested'}
-                              style={{ width: 7, height: 7, borderRadius: '50%', background: it.followed ? ACCENT : 'transparent', border: it.followed ? 'none' : '1px solid #b6b0a3' }} />
+                            {g.kind === 'house'
+                              ? <span title={it.followed ? 'following' : 'suggested'} style={{ width: 7, height: 7, borderRadius: '50%', background: it.followed ? ACCENT : 'transparent', border: it.followed ? 'none' : '1px solid #b6b0a3' }} />
+                              : <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d' }}>{it.weight}</span>}
                           </span>
                         )}
-                        {g.kind === 'pattern' && <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d' }}>{it.weight}</span>}
                         {g.kind === 'board' && <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d' }}>{it.count}</span>}
                       </button>
                     )
@@ -883,8 +883,8 @@ export default function GraphDesk() {
                     }}
                     onRemove={inBoard ? () => boardItemMut.mutate({ slug: boardSlug!, nodeId: n.id, remove: true }) : undefined}
                     connectable={inBoard && n.type !== 'cluster'}
-                    onFocus={!inBoard && n.type === 'house' ? () => focusOn(n.id) : undefined}
-                    onCompare={!inBoard && n.type === 'house' ? () => toggleCompare(n.id) : undefined}
+                    onFocus={!inBoard && (n.type === 'house' || n.type === 'pattern') ? () => focusOn(n.id) : undefined}
+                    onCompare={!inBoard && (n.type === 'house' || n.type === 'pattern') ? () => toggleCompare(n.id) : undefined}
                     inCompare={compareMode && focusIds.includes(n.id)}
                   />
                 ))}
@@ -1063,6 +1063,17 @@ export default function GraphDesk() {
                     ◎ Focus the desk on this
                   </button>
                 )}
+                {open && ['house', 'pattern'].includes(detail.data.type) && (() => {
+                  const inSet = compareMode && focusIds.includes(open)
+                  return (
+                    <button onClick={() => toggleCompare(open)}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = '#fbfaf8'; e.currentTarget.style.borderColor = ACCENT }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = inSet ? ACCENT : 'none'; e.currentTarget.style.color = inSet ? '#fbfaf8' : ACCENT; e.currentTarget.style.borderColor = ACCENT }}
+                      style={{ width: '100%', cursor: 'pointer', marginTop: 8, background: inSet ? ACCENT : 'none', color: inSet ? '#fbfaf8' : ACCENT, border: `1px solid ${ACCENT}`, padding: 11, ...uppercase, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.16em' }}>
+                      {inSet ? '− Remove from compare' : '＋ Add to compare'}
+                    </button>
+                  )
+                })()}
 
                 <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 21, padding: '22px 0 4px' }}>Connected to</div>
                 {detail.data.connected.map((l) => (

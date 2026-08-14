@@ -97,8 +97,12 @@ laid out deterministically as **tidy, non-overlapping grid regions**:
    exclusive pieces, keeps the anchors + the core they all share, and wires each
    anchor straight to the shared aesthetics so nothing floats. Shared-by-≥2 highlight
    already landed in Phase 1.
-3. **(Optional) Reach.** Compare from the house panel and on-desk; generalize the
-   affordances beyond houses.
+3. **Reach.** ✅ *Shipped 2026-08-14.* Compare is no longer house-only: an "add to
+   compare" button sits in the node detail panel (houses + kindred), the index reveals
+   the hover ＋ on kindred rows too, and pattern node cards get the focus/compare
+   corners. Comparing two aesthetics ("what's both minimal *and* black?") and "only
+   shared" both work on kindred, reusing the same layout — the backend already accepts
+   pattern anchors via `_focus_members`.
 
 ## Locked decisions (2026-08-14)
 
