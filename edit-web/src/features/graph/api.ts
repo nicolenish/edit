@@ -108,6 +108,21 @@ export function useDeleteBoard() {
   })
 }
 
+// Add board-only moodboard content (note / image / color / link) — never enters the graph.
+export function useAddBoardLocal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ slug, ...body }: { slug: string; local_kind: 'note' | 'image' | 'color' | 'link'; text?: string; image_url?: string; color?: string; url?: string; x?: number; y?: number }) => {
+      const { data } = await api.post(`/graph/board/${slug}/local/`, body)
+      return data as { node_id: string; count: number }
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['board-graph', v.slug] })
+      qc.invalidateQueries({ queryKey: ['graph'] })
+    },
+  })
+}
+
 // Persist a board's own arrangement (positions scoped to this board).
 export async function saveBoardPositions(slug: string, positions: Record<string, { x: number; y: number }>) {
   if (!Object.keys(positions).length) return
@@ -161,6 +176,18 @@ export function useCreateBoard() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['graph'] })
       qc.invalidateQueries({ queryKey: ['boards'] })
+    },
+  })
+}
+
+// Upload a pasted/picked image; returns a /media/ URL to use as a clip's image.
+export function useUploadImage() {
+  return useMutation({
+    mutationFn: async (file: File | Blob) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      const { data } = await api.post<{ url: string }>('/uploads/', fd)
+      return data.url
     },
   })
 }

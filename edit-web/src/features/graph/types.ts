@@ -11,6 +11,8 @@ export type GraphNodeType =
   | 'board'
   | 'note'
   | 'clipping'
+  | 'swatch' // board-only colour swatch
+  | 'link'   // board-only link card
 
 export interface GraphNode {
   id: string
@@ -22,6 +24,8 @@ export interface GraphNode {
   followed?: boolean
   suggested?: boolean
   weight?: number // pattern strength (count)
+  color?: string // swatch: the hex
+  url?: string // link: the href
   date?: string | null // ISO — when it entered your world; drives the "by day clipped" lens
   x: number
   y: number
@@ -121,6 +125,7 @@ export interface NodeDetail {
   connected: NodeLink[]
   boards: NodeBoardRef[]
   isHouse: boolean
+  followed?: boolean // house: whether you currently follow it (drives the Follow/Unfollow button)
   canPin: boolean
   codes?: string[] // house: signature house codes, surfaced on the panel
   url?: string // piece: buy link out

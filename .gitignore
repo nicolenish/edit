@@ -20,3 +20,6 @@ following.json
 
 # Claude Code local tooling (permissions, launch config)
 .claude/
+
+# uploaded clip images (local media)
+media/

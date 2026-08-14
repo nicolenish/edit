@@ -591,6 +591,7 @@ def _house_detail(key):
         "title": b.name, "desc": (lore.essence if lore and lore.essence else b.story) or "",
         "image": b.hero_image_url or None,
         "tags": (b.tags or [])[:6],
+        "followed": followed,  # authoritative follow state for the panel's Follow/Unfollow button
         "codes": list(lore.codes) if lore else [],  # signature house codes, surfaced on the panel
         "meta": [{"k": "City", "v": b.city or "—"}, {"k": "Tier", "v": b.get_tier_display() if b.tier else "—"},
                  {"k": "Pieces", "v": str(b.products.count())}],
@@ -783,6 +784,7 @@ def build_board_graph(slug: str) -> dict | None:
         return None
     items = list(board.items.all())
     pos = {it.node_id: (it.x, it.y) for it in items}
+    local_items = {it.node_id: it for it in items if it.local_kind}  # board-only moodboard content
     ids = [it.node_id for it in items]
 
     def rest_of(prefix):
@@ -835,6 +837,22 @@ def build_board_graph(slug: str) -> dict | None:
                 continue
             nodes.append({"id": nid, "type": "note", "label": (e.note[:44] or str(e.date)),
                           "subtitle": "diary", "tags": [], "image": None, "date": _iso(getattr(e, "created_at", None)), "x": x, "y": y})
+        elif kind == "local":
+            it = local_items.get(nid)
+            if not it:
+                continue
+            if it.local_kind == "note":
+                nodes.append({"id": nid, "type": "note", "label": it.text or "Note", "subtitle": "note",
+                              "tags": [], "image": None, "date": None, "x": x, "y": y})
+            elif it.local_kind == "image":
+                nodes.append({"id": nid, "type": "clipping", "label": it.text or "Image", "subtitle": "on this board",
+                              "tags": [], "image": it.image_url or None, "date": None, "x": x, "y": y})
+            elif it.local_kind == "color":
+                nodes.append({"id": nid, "type": "swatch", "label": it.color or "#000", "subtitle": "swatch",
+                              "tags": [], "image": None, "color": it.color, "date": None, "x": x, "y": y})
+            elif it.local_kind == "link":
+                nodes.append({"id": nid, "type": "link", "label": it.text or it.url, "subtitle": it.url,
+                              "tags": [], "image": None, "url": it.url, "date": None, "x": x, "y": y})
 
     node_id_set = {n["id"] for n in nodes}
     edges, seen = [], set()

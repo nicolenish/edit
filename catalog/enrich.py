@@ -225,14 +225,25 @@ CAPTURE_TOOL = {
 }
 
 
+def _fetchable(u: str) -> bool:
+    """A URL the Anthropic API can actually load: public http(s), not a local upload."""
+    return (u.startswith(("http://", "https://"))
+            and "localhost" not in u and "127.0.0.1" not in u and "/media/" not in u)
+
+
 def classify_capture(text="", url="", image_url="", client: anthropic.Anthropic | None = None) -> dict:
     """Triage a capture into {kind, title, tags} with a fast model (+ vision if an image)."""
+    # A pasted/uploaded image with no words → it's a clipping; skip the vision call, since
+    # the model can't fetch a local /media upload anyway.
+    if image_url and not text and not url and not _fetchable(image_url):
+        return {"kind": "clip", "title": "Clipping", "tags": [], "model_id": MODEL_ID}
+
     client = client or anthropic.Anthropic()
     content = []
-    if image_url:
+    if image_url and _fetchable(image_url):
         content.append({"type": "image", "source": {"type": "url", "url": image_url}})
     brief = "\n".join(p for p in [f"Thought: {text}" if text else "", f"Link: {url}" if url else ""] if p)
-    content.append({"type": "text", "text": brief or "(an image with no words)"})
+    content.append({"type": "text", "text": brief or "(an image clipping)"})
     resp = client.messages.create(
         model=MODEL_ID, max_tokens=400, system=CAPTURE_SYSTEM,
         messages=[{"role": "user", "content": content}],

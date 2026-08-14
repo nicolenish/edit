@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard } from './api'
+import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal } from './api'
 import type { GraphNode, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem } from './types'
 
 const STAGE_W = 2400
@@ -49,10 +49,12 @@ export default function GraphDesk() {
   // A board opens as its own composed sub-graph: the desk shows only that board's items.
   const [boardSlug, setBoardSlug] = useState<string | null>(null)
   const [editingBoard, setEditingBoard] = useState(false)   // board title/description editor open
+  const [followHover, setFollowHover] = useState(false)     // hover on Following → reveals "Unfollow"
   const boardQ = useBoardGraph(boardSlug)
   const boardItemMut = useBoardItem()
   const updateBoardMut = useUpdateBoard()
   const deleteBoardMut = useDeleteBoard()
+  const addLocalMut = useAddBoardLocal()
   const inBoard = !!boardSlug
   const deskGraph = inBoard ? boardQ.data : graph            // what the canvas draws
   const deskNodes = deskGraph?.nodes ?? []
@@ -394,11 +396,10 @@ export default function GraphDesk() {
     boardItemMut.mutate({ slug, nodeId: open, remove: wasPinned })
   }, [open, pinMut, graph, boardItemMut])
 
-  const toggleFollow = useCallback((houseNodeId: string) => {
+  const toggleFollow = useCallback((houseNodeId: string, followed: boolean) => {
     if (!houseNodeId.startsWith('house:')) return
-    const node = graph?.nodes.find((n) => n.id === houseNodeId)
-    followMut.mutate({ brandKey: houseNodeId.slice('house:'.length), followed: !!node?.followed })
-  }, [graph, followMut])
+    followMut.mutate({ brandKey: houseNodeId.slice('house:'.length), followed })
+  }, [followMut])
 
   const switchLens = useCallback((next: Lens) => {
     setLens(next)
@@ -481,8 +482,14 @@ export default function GraphDesk() {
         <aside style={{ borderRight: `1px solid ${INK}`, display: 'flex', flexDirection: 'column', minHeight: 0, background: '#f6f4ef' }}>
           <div style={{ padding: '11px 13px 10px', borderBottom: '1px solid rgba(20,19,16,.28)' }}>
             <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 16, paddingBottom: 9 }}>Index of everything</div>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search pieces, houses, kindred…"
-              style={{ width: '100%', border: '1px solid rgba(20,19,16,.28)', background: '#fff', padding: '7px 9px', fontFamily: 'Newsreader, serif', fontSize: 13, color: INK, outline: 'none' }} />
+            <div style={{ position: 'relative' }}>
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search pieces, houses, kindred…"
+                style={{ width: '100%', border: '1px solid rgba(20,19,16,.28)', background: '#fff', padding: '7px 26px 7px 9px', fontFamily: 'Newsreader, serif', fontSize: 13, color: INK, outline: 'none' }} />
+              {query && (
+                <button onClick={() => setQuery('')} title="Clear search"
+                  style={{ position: 'absolute', top: '50%', right: 4, transform: 'translateY(-50%)', width: 20, height: 20, display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'none', border: 'none', color: '#7d776b', fontSize: 15, lineHeight: 1, padding: 0 }}>×</button>
+              )}
+            </div>
           </div>
           <div style={{ overflow: 'auto', flex: 1, paddingBottom: 20 }}>
             {indexGroups.map((g) => {
@@ -512,6 +519,7 @@ export default function GraphDesk() {
                       <button key={it.id} onClick={() => {
                         if (g.kind === 'board') enterBoard(it.id)
                         else if (inBoard) boardItemMut.mutate({ slug: boardSlug!, nodeId: it.id })
+                        else if (study && g.kind === 'house') setStudy(it.id)  // switch the long view in place
                         else focusFromIndex(it.id)
                       }} style={indexRow}
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#fffdf9')}
@@ -637,7 +645,11 @@ export default function GraphDesk() {
                     count={n.type === 'board' ? boardCount(n.id) : undefined}
                     highlighted={open === n.id}
                     innerRef={(el) => { nodeRefs.current[n.id] = el }}
-                    onOpen={() => (n.type === 'board' ? enterBoard(n.id) : openNode(n.id))}
+                    onOpen={() => {
+                      if (n.type === 'board') enterBoard(n.id)
+                      else if (n.id.startsWith('local:')) { if (n.type === 'link' && n.url) window.open(n.url, '_blank', 'noopener') }
+                      else openNode(n.id)
+                    }}
                     onRemove={inBoard ? () => boardItemMut.mutate({ slug: boardSlug!, nodeId: n.id, remove: true }) : undefined}
                   />
                 ))}
@@ -652,6 +664,13 @@ export default function GraphDesk() {
                 <LegendRow color={LINE_REGION} dotted label="Kindred · where founded" />
                 <LegendRow color={LINE_PRICE} dotted label="Kindred · price point" />
               </div>
+
+              {inBoard && (
+                <BoardAddBar onAdd={(payload) => {
+                  const n = deskNodes.length
+                  addLocalMut.mutate({ slug: boardSlug!, ...payload, x: 260 + (n % 6) * 46, y: 170 + (n % 6) * 46 })
+                }} />
+              )}
             </div>
           ) : (
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 22px 44px' }}>
@@ -747,11 +766,18 @@ export default function GraphDesk() {
                   </div>
                 )}
 
-                {detail.data.isHouse && (
+                {detail.data.isHouse && (() => {
+                  const followed = detail.data.followed ?? openFollowed
+                  return (
                   <>
-                    <button onClick={() => toggleFollow(open)}
-                      style={{ width: '100%', cursor: 'pointer', marginTop: 18, background: openFollowed ? INK : 'none', color: openFollowed ? '#fbfaf8' : INK, border: `1px solid ${INK}`, padding: 11, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase' }}>
-                      {openFollowed ? 'Following ✓' : 'Follow this house'}
+                    <button onClick={() => toggleFollow(open, followed)} disabled={followMut.isPending}
+                      onMouseEnter={() => setFollowHover(true)} onMouseLeave={() => setFollowHover(false)}
+                      style={{ width: '100%', cursor: followMut.isPending ? 'default' : 'pointer', marginTop: 18,
+                        background: followed ? (followHover ? ACCENT : INK) : 'none',
+                        color: followed ? '#fbfaf8' : INK,
+                        border: `1px solid ${followed && followHover ? ACCENT : INK}`,
+                        padding: 11, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase' }}>
+                      {followed ? (followHover ? 'Unfollow' : 'Following ✓') : (followMut.isPending ? 'Following…' : 'Follow this house')}
                     </button>
                     <button onClick={() => setStudy(open)}
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.color = ACCENT }}
@@ -760,7 +786,8 @@ export default function GraphDesk() {
                       The long view — history &amp; lineage ↗
                     </button>
                   </>
-                )}
+                  )
+                })()}
 
                 <div style={{ borderTop: `1px solid ${INK}`, marginTop: 20 }}>
                   {detail.data.meta.map((row) => (
@@ -957,6 +984,18 @@ function renderBody(node: GraphNode, count: number | undefined, suggested: boole
         <div style={{ fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#6d5f3a' }}>{node.subtitle}</div>
         <p style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 30, lineHeight: 1.28, margin: '5px 0 0', color: '#221d10' }}>{node.label}</p>
       </>
+    case 'swatch':
+      return <>
+        <div style={{ fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#7d776b' }}>Swatch</div>
+        <div style={{ aspectRatio: '3 / 2', marginTop: 8, border: '1px solid rgba(20,19,16,.2)', background: node.color || '#000' }} />
+        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, paddingTop: 7, color: '#45413a' }}>{node.label}</div>
+      </>
+    case 'link':
+      return <>
+        <div style={{ fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#7d776b' }}>Link ↗</div>
+        <div style={{ fontFamily: 'Newsreader, serif', fontSize: 18, paddingTop: 6 }}>{node.label}</div>
+        {node.url && <div style={{ fontFamily: 'Newsreader, serif', fontSize: 12, color: ACCENT, paddingTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{node.url.replace(/^https?:\/\//, '')}</div>}
+      </>
     default:
       return null
   }
@@ -1011,11 +1050,13 @@ function ClipEditor({ clip, boards, onClose }: { clip: ClipEditable; boards: Ind
 // ── capture bar — the inbox: clip a thought / link / image → Claude types it ──
 function CaptureBar({ boards, onCaptured }: { boards: IndexItem[]; onCaptured: (nodeId: string) => void }) {
   const capture = useCapture()
+  const uploadImage = useUploadImage()
   const [text, setText] = useState('')
   const [url, setUrl] = useState('')
   const [image, setImage] = useState('')
   const [board, setBoard] = useState('')
   const [open, setOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement | null>(null)
   const boardSlug = (id: string) => id.replace('board:', '')
   const submit = () => {
     if (!text.trim() && !url.trim() && !image.trim()) return
@@ -1024,19 +1065,38 @@ function CaptureBar({ boards, onCaptured }: { boards: IndexItem[]; onCaptured: (
       { onSuccess: (d) => { setText(''); setUrl(''); setImage(''); setOpen(false); onCaptured(d.node_id) } },
     )
   }
+  const takeImageFile = (file: File | Blob) => {
+    setOpen(true)
+    uploadImage.mutate(file, { onSuccess: (u) => setImage(u) })
+  }
+  // paste an image straight from the clipboard (right-click → Copy Image, then ⌘V)
+  const onPaste = (e: React.ClipboardEvent) => {
+    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'))
+    if (item) { const f = item.getAsFile(); if (f) { e.preventDefault(); takeImageFile(f) } }
+  }
   const fieldStyle: React.CSSProperties = { flex: 1, minWidth: 0, border: 'none', borderBottom: '1px solid rgba(20,19,16,.28)', background: 'none', padding: '5px 0', fontFamily: 'Newsreader, serif', fontSize: 14, color: INK, outline: 'none' }
   return (
     <footer style={{ display: 'grid', gridTemplateColumns: '218px 1fr auto', alignItems: 'center', borderTop: `1px solid ${INK}`, background: '#fbfaf8' }}>
       <div style={{ padding: '14px 18px', borderRight: `1px solid ${INK}`, ...uppercase, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.16em', color: '#7d776b' }}>Capture<br />text · image · link</div>
-      <div style={{ padding: '10px 22px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ padding: '10px 22px', display: 'flex', flexDirection: 'column', gap: 6 }}
+        onPaste={onPaste}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { const f = e.dataTransfer.files?.[0]; if (f && f.type.startsWith('image/')) { e.preventDefault(); takeImageFile(f) } }}>
         <input value={text} onFocus={() => setOpen(true)} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
           placeholder="Clip a piece, a house, a thought…"
           style={{ border: 'none', background: 'none', padding: '4px 0', fontFamily: 'Newsreader, serif', fontSize: 20, color: INK, outline: 'none', width: '100%' }} />
         {open && (
-          <div style={{ display: 'flex', gap: 16, alignItems: 'baseline' }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="paste a link…" style={fieldStyle} />
-            <input value={image} onChange={(e) => setImage(e.target.value)} placeholder="paste an image URL…" style={fieldStyle} />
+            <input value={image} onChange={(e) => setImage(e.target.value)} placeholder="paste an image, or a URL…" style={fieldStyle} />
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) takeImageFile(f) }} />
+            <button onClick={() => fileRef.current?.click()}
+              style={{ cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', padding: '5px 10px', fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#45413a' }}>
+              {uploadImage.isPending ? 'Uploading…' : 'Add image'}
+            </button>
+            {image && <img src={image} alt="" style={{ height: 34, width: 34, objectFit: 'cover', border: '1px solid rgba(20,19,16,.3)' }} />}
           </div>
         )}
       </div>
@@ -1150,6 +1210,66 @@ function ListRow({ item, kindOf, onOpen }: { item: ListItem; kindOf: string; onO
         <div style={{ fontFamily: 'Newsreader, serif', fontSize: 12, color: '#7d776b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sub}</div>
       </div>
     </button>
+  )
+}
+
+// the moodboard add bar — board-only note / image / color / link that never enters the graph.
+type LocalPayload = { local_kind: 'note' | 'image' | 'color' | 'link'; text?: string; image_url?: string; color?: string; url?: string }
+function BoardAddBar({ onAdd }: { onAdd: (p: LocalPayload) => void }) {
+  const [kind, setKind] = useState<'note' | 'image' | 'color' | 'link' | null>(null)
+  const [text, setText] = useState('')
+  const [url, setUrl] = useState('')
+  const [color, setColor] = useState('#b8860b')
+  const [image, setImage] = useState('')
+  const upload = useUploadImage()
+  const fileRef = useRef<HTMLInputElement | null>(null)
+  const reset = () => { setKind(null); setText(''); setUrl(''); setImage(''); setColor('#b8860b') }
+  const takeFile = (f: File | Blob) => upload.mutate(f, { onSuccess: (u) => setImage(u) })
+  const add = () => {
+    if (kind === 'note' && text.trim()) onAdd({ local_kind: 'note', text: text.trim() })
+    else if (kind === 'image' && image) onAdd({ local_kind: 'image', image_url: image, text: text.trim() })
+    else if (kind === 'color') onAdd({ local_kind: 'color', color })
+    else if (kind === 'link' && url.trim()) onAdd({ local_kind: 'link', url: url.trim(), text: text.trim() })
+    else return
+    reset()
+  }
+  const wrap: React.CSSProperties = { position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 6, background: 'rgba(251,250,248,.97)', border: `1px solid ${INK}`, boxShadow: '0 4px 20px -12px rgba(20,19,16,.8)', padding: '8px 10px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', maxWidth: '80%' }
+  const btn: React.CSSProperties = { cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', padding: '6px 10px', fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#45413a' }
+  const field: React.CSSProperties = { border: 'none', borderBottom: `1px solid ${INK}`, background: 'none', padding: '5px 2px', fontFamily: 'Newsreader, serif', fontSize: 14, color: INK, outline: 'none' }
+  if (!kind) {
+    return (
+      <div style={wrap} onPaste={() => {}}>
+        <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: '#7d776b' }}>Add to board</span>
+        <button style={btn} onClick={() => setKind('note')}>＋ Note</button>
+        <button style={btn} onClick={() => setKind('image')}>＋ Image</button>
+        <button style={btn} onClick={() => setKind('color')}>＋ Color</button>
+        <button style={btn} onClick={() => setKind('link')}>＋ Link</button>
+      </div>
+    )
+  }
+  return (
+    <div style={wrap}
+      onPaste={(e) => { if (kind === 'image') { const it = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/')); const f = it?.getAsFile(); if (f) { e.preventDefault(); takeFile(f) } } }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => { if (kind === 'image') { const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith('image/')) { e.preventDefault(); takeFile(f) } } }}>
+      {kind === 'note' && <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="a note, a vibe…" style={{ ...field, width: 240 }} />}
+      {kind === 'image' && <>
+        <input value={image} onChange={(e) => setImage(e.target.value)} placeholder="paste/drop an image, or a URL" style={{ ...field, width: 220 }} />
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) takeFile(f) }} />
+        <button style={btn} onClick={() => fileRef.current?.click()}>{upload.isPending ? '…' : 'pick'}</button>
+        {image && <img src={image} alt="" style={{ height: 28, width: 28, objectFit: 'cover', border: '1px solid rgba(20,19,16,.3)' }} />}
+      </>}
+      {kind === 'color' && <>
+        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 34, height: 30, border: '1px solid rgba(20,19,16,.3)', background: 'none', cursor: 'pointer' }} />
+        <input value={color} onChange={(e) => setColor(e.target.value)} style={{ ...field, width: 90, fontFamily: 'ui-monospace, monospace' }} />
+      </>}
+      {kind === 'link' && <>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="label" style={{ ...field, width: 120 }} />
+        <input autoFocus value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="https://…" style={{ ...field, width: 200 }} />
+      </>}
+      <button style={{ ...btn, background: INK, color: '#fbfaf8', borderColor: INK }} onClick={add}>Add</button>
+      <button style={btn} onClick={reset}>×</button>
+    </div>
   )
 }
 
@@ -1353,8 +1473,8 @@ function pill(size: number): React.CSSProperties {
   return { fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: size, border: '1px solid rgba(20,19,16,.28)', borderRadius: 999, padding: '2px 9px' }
 }
 function cardWidth(type: GraphNodeType): number {
-  return { piece: 226, house: 208, pattern: 194, board: 212, clipping: 176, note: 214 }[type] ?? 200
+  return { piece: 226, house: 208, pattern: 194, board: 212, clipping: 176, note: 214, swatch: 168, link: 200 }[type] ?? 200
 }
 function shortKind(type: GraphNodeType): string {
-  return { piece: 'PIECE', house: 'HOUSE', pattern: 'KINDRED', board: 'BOARD', clipping: 'CLIPPING', note: 'NOTE' }[type] ?? ''
+  return { piece: 'PIECE', house: 'HOUSE', pattern: 'KINDRED', board: 'BOARD', clipping: 'CLIPPING', note: 'NOTE', swatch: 'SWATCH', link: 'LINK' }[type] ?? ''
 }

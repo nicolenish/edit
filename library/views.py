@@ -1,15 +1,39 @@
+import uuid
 from collections import Counter
 
+from django.core.files.storage import default_storage
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from catalog.models import Brand, Product
 from catalog.serializers import ProductSerializer
 from .models import Follow, Board, Pin, DiaryEntry, Connection, Clip
 from .serializers import BoardSerializer, PinSerializer, DiaryEntrySerializer, ConnectionSerializer, ClipSerializer
+
+
+# ---- image uploads (pasted / picked clip images) ----
+_IMG_EXT = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+def upload_image(request):
+    """Store a pasted/uploaded image and return a URL to use as a clip's image.
+    Accepts multipart 'file'. Returns a relative /media/… URL (proxied in dev)."""
+    f = request.FILES.get("file")
+    if not f:
+        return Response({"detail": "no file"}, status=400)
+    ext = _IMG_EXT.get(getattr(f, "content_type", ""), "")
+    if not ext:
+        return Response({"detail": "unsupported image type"}, status=415)
+    if f.size > 8 * 1024 * 1024:
+        return Response({"detail": "image too large (max 8MB)"}, status=413)
+    name = default_storage.save(f"uploads/{uuid.uuid4().hex}{ext}", f)
+    return Response({"url": default_storage.url(name)}, status=201)
 
 
 # ---- follows ----

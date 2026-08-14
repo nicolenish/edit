@@ -55,6 +55,15 @@ class BoardItem(models.Model):
     y = models.FloatField(default=0)
     added_at = models.DateTimeField(auto_now_add=True)
 
+    # board-only "moodboard" content (never enters the main graph). When local_kind is set,
+    # node_id is a synthetic `local:<uuid>` and the fields below hold the content itself.
+    LOCAL_KINDS = [("note", "Note"), ("image", "Image"), ("color", "Color"), ("link", "Link")]
+    local_kind = models.CharField(max_length=10, blank=True, choices=LOCAL_KINDS)
+    text = models.TextField(blank=True)                       # note body / link or image caption
+    image_url = models.CharField(max_length=1000, blank=True)  # image tile (external or /media upload)
+    color = models.CharField(max_length=20, blank=True)        # swatch hex
+    url = models.CharField(max_length=1000, blank=True)        # link href
+
     class Meta:
         unique_together = [("board", "node_id")]
         ordering = ["added_at"]
@@ -79,7 +88,7 @@ class Clip(models.Model):
     title = models.CharField(max_length=200, blank=True)
     text = models.TextField(blank=True)
     url = models.URLField(max_length=1000, blank=True)
-    image_url = models.URLField(max_length=1000, blank=True)
+    image_url = models.CharField(max_length=1000, blank=True)  # external URL or a local /media/ upload
     tags = models.JSONField(default=list, blank=True)
     board = models.ForeignKey(Board, related_name="clips", null=True, blank=True, on_delete=models.SET_NULL)
     model_id = models.CharField(max_length=60, blank=True)  # classifier provenance

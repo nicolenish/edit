@@ -172,6 +172,34 @@ def graph_board(request, slug):
     return Response(data)
 
 
+@api_view(["POST"])
+def graph_board_local(request, slug):
+    """Add board-only 'moodboard' content — a note / image / color / link that lives on
+    this board and never enters the main graph. The server mints its `local:<uuid>` id."""
+    import uuid as _uuid
+
+    from library.models import Board, BoardItem
+
+    board = Board.objects.filter(slug=slug).first()
+    if not board:
+        return Response({"detail": "No such board"}, status=status.HTTP_404_NOT_FOUND)
+    data = request.data or {}
+    kind = data.get("local_kind")
+    if kind not in ("note", "image", "color", "link"):
+        return Response({"detail": "local_kind must be note|image|color|link"}, status=400)
+    try:
+        x = float(data.get("x", 320))
+        y = float(data.get("y", 240))
+    except (TypeError, ValueError):
+        x, y = 320.0, 240.0
+    item = BoardItem.objects.create(
+        board=board, node_id=f"local:{_uuid.uuid4().hex}", x=x, y=y, local_kind=kind,
+        text=(data.get("text") or "").strip(), image_url=(data.get("image_url") or "").strip(),
+        color=(data.get("color") or "").strip(), url=(data.get("url") or "").strip(),
+    )
+    return Response({"node_id": item.node_id, "count": board.items.count()}, status=status.HTTP_201_CREATED)
+
+
 @api_view(["POST", "DELETE"])
 def graph_board_items(request, slug):
     """Add (POST {node_id}) or remove (DELETE {node_id}) an item on a board's canvas.

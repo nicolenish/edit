@@ -15,4 +15,5 @@ urlpatterns = [
     path("taste/", views.taste),
     path("capture/", views.capture),
     path("clips/<uuid:clip_id>/", views.clip_detail),
+    path("uploads/", views.upload_image),
 ]
