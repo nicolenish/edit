@@ -77,10 +77,12 @@ export default function GraphDesk() {
   const [showKinship, setShowKinship] = useState(false)
   // cluster collapse (docs/graph-views.md A3): fold a node group into a hub you expand on click.
   const [folded, setFolded] = useState<Set<string>>(new Set())
-  // which fold-group a node type belongs to (only these fold; boards/clusters/moodboard don't)
+  // which fold-group a node type belongs to (cluster / suggested-ghost / moodboard don't fold)
   const clusterKey = (t: GraphNodeType): string | null =>
-    t === 'house' ? 'house' : t === 'piece' ? 'piece' : t === 'pattern' ? 'kindred' : (t === 'clipping' || t === 'note') ? 'clip' : null
-  const clusterLabel: Record<string, string> = { house: 'houses', piece: 'pieces', kindred: 'kindred', clip: 'clippings' }
+    t === 'house' ? 'house' : t === 'piece' ? 'piece' : t === 'pattern' ? 'kindred'
+    : t === 'board' ? 'board' : (t === 'clipping' || t === 'note') ? 'clip' : null
+  const clusterLabel: Record<string, string> = { house: 'houses', piece: 'pieces', kindred: 'kindred', board: 'boards', clip: 'clippings' }
+  const clusterOne: Record<string, string> = { house: 'house', piece: 'piece', kindred: 'kindred', board: 'board', clip: 'clipping' }
   const foldedIds = useMemo(
     () => new Set(deskNodes.filter((n) => { const k = clusterKey(n.type); return k && folded.has(k) }).map((n) => n.id)),
     [deskNodes, folded],
@@ -91,21 +93,24 @@ export default function GraphDesk() {
     const hubs: GraphNode[] = []
     for (const k of folded) {
       const members = deskNodes.filter((n) => clusterKey(n.type) === k)
-      if (members.length < 2) { kept.push(...members); continue }  // a lone node isn't worth folding
+      if (!members.length) continue  // nothing of this type in the current view
       const cx = members.reduce((s, m) => s + m.x, 0) / members.length
       const cy = members.reduce((s, m) => s + m.y, 0) / members.length
-      hubs.push({ id: `cluster:${k}`, type: 'cluster', label: `${members.length} ${clusterLabel[k]}`, count: members.length, tags: [], x: cx, y: cy })
+      hubs.push({ id: `cluster:${k}`, type: 'cluster', label: `${members.length} ${members.length === 1 ? clusterOne[k] : clusterLabel[k]}`, count: members.length, tags: [], x: cx, y: cy })
     }
     return [...kept, ...hubs]
   }, [deskNodes, folded])
   const displayNodesRef = useRef(displayNodes)
   displayNodesRef.current = displayNodes
   const visEdge = (e: GraphEdge) => !foldedIds.has(e.from) && !foldedIds.has(e.to)
-  // groups worth offering to fold (≥3 of a type on the desk)
+  // every foldable group present in the current view (so clippings/boards can be tucked too)
   const foldableGroups = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const n of deskNodes) { const k = clusterKey(n.type); if (k) counts[k] = (counts[k] || 0) + 1 }
-    return Object.entries(counts).filter(([, c]) => c >= 3).map(([key, count]) => ({ key, count }))
+    const order = ['house', 'piece', 'kindred', 'board', 'clip']
+    return Object.entries(counts).filter(([, c]) => c >= 1)
+      .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+      .map(([key, count]) => ({ key, count }))
   }, [deskNodes])
   const toggleFold = (k: string) => setFolded((f) => { const s = new Set(f); s.has(k) ? s.delete(k) : s.add(k); return s })
   const shownEdges = (inBoard && !showKinship ? deskEdges.filter((e) => e.dim === 'authored') : deskEdges).filter(visEdge)
@@ -736,13 +741,16 @@ export default function GraphDesk() {
               ) : foldableGroups.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ color: '#7d776b' }}>Fold</span>
-                  {foldableGroups.map((g) => (
-                    <button key={g.key} onClick={() => toggleFold(g.key)}
-                      title={folded.has(g.key) ? `Unfold ${clusterLabel[g.key]}` : `Fold the ${g.count} ${clusterLabel[g.key]} into a hub`}
-                      style={{ ...lensBtn(folded.has(g.key)), color: folded.has(g.key) ? '#fbfaf8' : '#7d776b', padding: '5px 9px' }}>
-                      {clusterLabel[g.key]} {g.count}
-                    </button>
-                  ))}
+                  {foldableGroups.map((g) => {
+                    const name = g.count === 1 ? clusterOne[g.key] : clusterLabel[g.key]
+                    return (
+                      <button key={g.key} onClick={() => toggleFold(g.key)}
+                        title={folded.has(g.key) ? `Unfold ${clusterLabel[g.key]}` : `Fold the ${g.count} ${name} into a hub`}
+                        style={{ ...lensBtn(folded.has(g.key)), color: folded.has(g.key) ? '#fbfaf8' : '#7d776b', padding: '5px 9px' }}>
+                        {name} {g.count}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
               <button onClick={() => zoom(1 / 1.15)} style={iconBtn}>−</button>
