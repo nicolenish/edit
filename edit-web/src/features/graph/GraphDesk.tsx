@@ -1108,6 +1108,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   const isPattern = node.type === 'pattern'
   const isBoard = node.type === 'board'
   const isNote = node.type === 'note'
+  const isHouse = node.type === 'house'
   const suggested = node.suggested && !followed
 
   const base: React.CSSProperties = {
@@ -1115,9 +1116,10 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
     padding: '11px 13px 13px', border: `1px solid ${INK}`,
     transition: 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)',
   }
-  if (isPattern) Object.assign(base, { background: INK, color: '#fbfaf8', outline: `1px solid ${highlighted ? ACCENT : INK}`, outlineOffset: 4 })
+  if (isPattern) Object.assign(base, { background: '#fff', color: INK, boxShadow: '3px 3px 0 rgba(20,19,16,.08)', outline: highlighted ? `1px solid ${ACCENT}` : 'none', outlineOffset: 4 })
   else if (isNote) Object.assign(base, { background: '#f2e6c9', boxShadow: '3px 3px 0 rgba(20,19,16,.1)' })
   else if (suggested) Object.assign(base, { background: '#fbfaf8', borderStyle: 'dashed', borderColor: 'rgba(20,19,16,.5)', opacity: 0.72 })
+  else if (isHouse) Object.assign(base, { background: '#ecdcd4', boxShadow: '3px 3px 0 rgba(143,67,49,.14)' })  // muted accent
   else Object.assign(base, { background: '#fff', boxShadow: '3px 3px 0 rgba(20,19,16,.1)' })
   if (isBoard) Object.assign(base, { backgroundImage: 'radial-gradient(rgba(20,19,16,.16) 1px, transparent 1px)', backgroundSize: '16px 16px' })
   if (node.type === 'cluster') Object.assign(base, { background: '#fff', cursor: 'pointer', boxShadow: '4px 4px 0 #fff, 5px 5px 0 rgba(20,19,16,.4), 8px 8px 0 #fff, 9px 9px 0 rgba(20,19,16,.25)' })
@@ -1181,8 +1183,8 @@ function renderBody(node: GraphNode, count: number | undefined, suggested: boole
     case 'clipping':
       return <>{eyebrow('Clipping')}{title(18)}{shot('3/4', 'RUNWAY')}</>
     case 'pattern':
-      return <>{eyebrow('Kindred', true)}<div style={{ fontFamily: 'Newsreader, serif', fontSize: 20, paddingTop: 7 }}>{node.label}</div>
-        <div style={{ ...uppercase, fontFamily: 'Newsreader, serif', fontSize: 12, letterSpacing: '.1em', color: 'rgba(251,250,248,.62)', paddingTop: 5 }}>{node.weight} things</div></>
+      return <>{eyebrow('Kindred')}<div style={{ fontFamily: 'Newsreader, serif', fontSize: 19, paddingTop: 7 }}>{node.label}</div>
+        <div style={{ ...uppercase, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.1em', color: '#8b857a', paddingTop: 4 }}>{node.weight} things</div></>
     case 'board':
       return <>
         <div style={{ fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#7d776b' }}>{node.id === 'collartheory' ? 'Board · open thread' : 'Board'}</div>
@@ -1819,7 +1821,8 @@ const indexHead: React.CSSProperties = { display: 'grid', gridTemplateColumns: '
 const indexRow: React.CSSProperties = { width: '100%', cursor: 'pointer', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid rgba(20,19,16,.14)', padding: '7px 13px', display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 8, alignItems: 'baseline', transition: 'background .25s ease' }
 const iconBtn: React.CSSProperties = { cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', minWidth: 26, height: 26, font: 'inherit', fontSize: 13, textTransform: 'uppercase' }
 function lensBtn(active: boolean): React.CSSProperties {
-  return { cursor: 'pointer', background: active ? INK : 'none', color: active ? '#fbfaf8' : INK, border: `1px solid ${active ? INK : 'rgba(20,19,16,.3)'}`, padding: '6px 12px', font: 'inherit', letterSpacing: '.14em', textTransform: 'uppercase' }
+  // active = solid black; inactive = outlined with muted text (keeps the button affordance)
+  return { cursor: 'pointer', background: active ? INK : 'none', color: active ? '#fbfaf8' : '#7d776b', border: `1px solid ${active ? INK : 'rgba(20,19,16,.3)'}`, padding: '6px 12px', font: 'inherit', letterSpacing: '.14em', textTransform: 'uppercase' }
 }
 function pill(size: number): React.CSSProperties {
   return { fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: size, border: '1px solid rgba(20,19,16,.28)', borderRadius: 999, padding: '2px 9px' }
