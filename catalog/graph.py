@@ -455,10 +455,12 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
     CX, CY = 1200, 1000
     CW = 250                    # cell width — clears the widest card (an image piece ~226)
     CH_TALL, CH_SHORT = 292, 120  # a block of image pieces needs tall rows; kindred/houses are short
-    GAP = 190
+    GAP = 150
+    EXCL_PIECE_CAP, EXCL_TRAIT_CAP = 4, 3   # each pole shows only a few of its own pieces + traits,
+    #                                         so the shared core (the point) isn't drowned by fans
 
     def cols_for(m):
-        return max(1, int(round((m / 3.0) ** 0.5)))   # portrait-ish blocks — keeps the desk compact
+        return max(1, int(round((m / 4.5) ** 0.5)))   # portrait-ish blocks — keeps the desk narrow
 
     def row_h(ids):             # a block with any piece card needs the tall row so nothing overlaps
         return CH_TALL if any(i.startswith(("piece:", "clip:")) for i in ids) else CH_SHORT
@@ -481,8 +483,17 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
         return {ids[i]: (x0 + (i % cols) * CW, y0 + (i // cols) * ch) for i in range(m)}
 
     shared = sorted(m for m in union if m not in anchor_set and len(reached_by[m]) >= 2)
-    excl = {a: sorted(m for m in union if reached_by[m] == [a]) for a in anchors}
-    stray = sorted(m for m in union if m not in anchor_set and not reached_by[m])
+    # each pole keeps all of its exclusive kindred/aesthetics, but only its strongest few pieces —
+    # otherwise long piece columns bloat the desk and shrink every card.
+    excl = {}
+    for a in anchors:
+        ex = sorted(m for m in union if reached_by[m] == [a])
+        ex_pieces = [m for m in ex if m.startswith(("piece:", "clip:"))][:EXCL_PIECE_CAP]
+        ex_traits = [m for m in ex if not m.startswith(("piece:", "clip:"))][:EXCL_TRAIT_CAP]
+        excl[a] = ex_traits + ex_pieces
+    # drop the capped-out pieces from the desk entirely (don't strand them below)
+    union = anchor_set | set(shared) | {m for a in anchors for m in excl[a]}
+    stray = []
 
     pos = {}
     s_hw, s_hh = block_half(shared)
