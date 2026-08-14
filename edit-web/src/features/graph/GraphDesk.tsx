@@ -39,15 +39,20 @@ export default function GraphDesk() {
   // which re-composes the desk to a slice (region / tier / aesthetic / kindred / state).
   const [activeLens, setActiveLens] = useState<Record<string, string[]>>({})
   const hasLens = Object.keys(activeLens).length > 0
-  // focus mode — isolate one node's neighbourhood, or hold several as poles (docs/multi-focus.md)
+  // focus mode — isolate one node's neighbourhood, or hold several as poles (docs/multi-focus.md).
+  // `focusIds` holds the set; `compareMode` distinguishes a comparison SELECTION (which stays on the
+  // full map until you've picked a second house, so you can keep choosing) from a single focus.
   const [focusIds, setFocusIds] = useState<string[]>([])
+  const [compareMode, setCompareMode] = useState(false)
   const [focusDepth, setFocusDepth] = useState(1)
-  const focusKey = focusIds.length ? focusIds.join(',') : null
+  const comparing = compareMode && focusIds.length >= 2   // ≥2 → the Venn renders
+  // one pending compare pick keeps the full map (focusKey null) so the next pick is easy
+  const focusKey = comparing ? focusIds.join(',') : (!compareMode && focusIds.length === 1 ? focusIds[0] : null)
   const { data: graph, isLoading } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth)
   // multi-focus is a fresh, transient view: it uses the server's Venn coords and neither reads
   // nor writes the saved arrangement, so poles can't snap back to old main-desk positions.
   const multiRef = useRef(false)
-  multiRef.current = focusIds.length > 1
+  multiRef.current = comparing
   const lensesQ = useGraphLenses()
   const [view, setView] = useState<View>('graph')
   const listQ = useGraphList(view === 'list')
@@ -464,18 +469,27 @@ export default function GraphDesk() {
     }
   }, [view, deskGraph, inBoard, boardSlug, fit, applyTransform, updateEdges, save, persistPositions, lens])
 
-  // focus mode — isolate a node's neighbourhood; expand walks further out; clear returns to the map.
-  // `additive` (⌘/⇧-click) accumulates anchors into a multi-focus, toggling and capped at five.
-  const focusOn = useCallback((id: string, additive = false) => {
+  // focus mode — isolate ONE node's neighbourhood; expand walks further out; clear returns to the map.
+  const focusOn = useCallback((id: string) => {
     setOpen(null); setStudy(null); setFocusDepth(1); fitted.current = false
+    setCompareMode(false); setFocusIds([id])
+  }, [])
+  // compare — toggle a house in the comparison selection (cap 5). One pick stays on the full map;
+  // two or more render the Venn. Only refit when the desk actually crosses that threshold.
+  const toggleCompare = useCallback((id: string) => {
+    setOpen(null); setStudy(null); setFocusDepth(1)
+    setCompareMode(true)
     setFocusIds((cur) => {
-      if (!additive) return [id]
-      if (cur.includes(id)) return cur.filter((x) => x !== id)   // toggle off
-      return cur.length >= 5 ? cur : [...cur, id]                // cap at five poles
+      const next = cur.includes(id) ? cur.filter((x) => x !== id) : (cur.length >= 5 ? cur : [...cur, id])
+      if (next.length >= 2 || cur.length >= 2) fitted.current = false
+      return next
     })
   }, [])
-  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setFocusIds([]) }, [])
-  const removeAnchor = useCallback((id: string) => { fitted.current = false; setFocusIds((cur) => cur.filter((x) => x !== id)) }, [])
+  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setCompareMode(false); setFocusIds([]) }, [])
+  const removeAnchor = useCallback((id: string) => {
+    fitted.current = false
+    setFocusIds((cur) => { const next = cur.filter((x) => x !== id); if (!next.length) setCompareMode(false); return next })
+  }, [])
   const expandFocus = useCallback(() => { fitted.current = false; setFocusDepth((d) => Math.min(3, d + 1)) }, [])
 
   useEffect(() => {
@@ -569,6 +583,12 @@ export default function GraphDesk() {
   }
 
   const openObj = open ? graph.nodes.find((n) => n.id === open) : undefined
+
+  // the focus/compare bar reads from client state so a single *pending* compare pick shows even
+  // while the desk is still the full map (the server only returns graph.focus once a fetch runs).
+  const houseById: Record<string, string> = {}
+  graph.index.houses.forEach((h) => { houseById[h.id] = h.label })
+  const anchorChips = focusIds.map((id) => ({ id, label: graph.focus?.anchors.find((a) => a.id === id)?.label || houseById[id] || id }))
   const openFollowed = openObj ? followedOf(openObj) : false
 
   // the index lists the FULL catalogue from graph.index, but shows a CURATED default per
@@ -627,6 +647,8 @@ export default function GraphDesk() {
 
         {/* ── index of everything ── */}
         <aside style={{ borderRight: `1px solid ${INK}`, display: 'flex', flexDirection: 'column', minHeight: 0, background: '#f6f4ef' }}>
+          {/* the compare ＋ on a house row is hidden until you hover it (or it's already an anchor) */}
+          <style>{`.idx-house .cmp-add{opacity:0;transition:opacity .12s ease}.idx-house:hover .cmp-add{opacity:1}.idx-house .cmp-add.on{opacity:1}`}</style>
           <div style={{ padding: '11px 13px 10px', borderBottom: '1px solid rgba(20,19,16,.28)' }}>
             <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 16, paddingBottom: 9 }}>Index of everything</div>
             <div style={{ position: 'relative' }}>
@@ -667,16 +689,23 @@ export default function GraphDesk() {
                         if (g.kind === 'board') enterBoard(it.id)
                         else if (inBoard) boardItemMut.mutate({ slug: boardSlug!, nodeId: it.id })
                         else if (study && g.kind === 'house') setStudy(it.id)  // switch the long view in place
-                        else if ((e.metaKey || e.shiftKey) && g.kind === 'house') focusOn(it.id, true)  // ⌘-click → compare
+                        else if ((e.metaKey || e.shiftKey) && g.kind === 'house') toggleCompare(it.id)  // ⌘-click → compare
                         else focusFromIndex(it.id)
-                      }} style={indexRow}
+                      }} className={g.kind === 'house' ? 'idx-house' : undefined} style={indexRow}
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#fffdf9')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}>
                         <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d', fontVariantNumeric: 'tabular-nums' }}>{String(counter).padStart(2, '0')}</span>
                         <span style={{ fontFamily: 'Newsreader, serif', fontSize: 12.5, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
                         {g.kind === 'house' && (
-                          <span title={it.followed ? 'following' : 'suggested'}
-                            style={{ width: 7, height: 7, borderRadius: '50%', alignSelf: 'center', background: it.followed ? ACCENT : 'transparent', border: it.followed ? 'none' : '1px solid #b6b0a3' }} />
+                          <span style={{ display: 'inline-flex', gap: 7, alignItems: 'center', justifySelf: 'end' }}>
+                            <span className={'cmp-add' + (compareMode && focusIds.includes(it.id) ? ' on' : '')} role="button"
+                              title={compareMode && focusIds.includes(it.id) ? 'Remove from compare' : 'Add to compare'}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => { e.stopPropagation(); toggleCompare(it.id) }}
+                              style={{ cursor: 'pointer', color: ACCENT, fontFamily: 'Newsreader, serif', fontSize: 14, lineHeight: 1, width: 12, textAlign: 'center' }}>{compareMode && focusIds.includes(it.id) ? '−' : '＋'}</span>
+                            <span title={it.followed ? 'following' : 'suggested'}
+                              style={{ width: 7, height: 7, borderRadius: '50%', background: it.followed ? ACCENT : 'transparent', border: it.followed ? 'none' : '1px solid #b6b0a3' }} />
+                          </span>
                         )}
                         {g.kind === 'pattern' && <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d' }}>{it.weight}</span>}
                         {g.kind === 'board' && <span style={{ fontFamily: 'Newsreader, serif', fontSize: 10, color: '#a09a8d' }}>{it.count}</span>}
@@ -728,19 +757,20 @@ export default function GraphDesk() {
                   <button onClick={() => switchLens('diary')} style={lensBtn(lens === 'diary')}>By day clipped</button>
                   <span style={{ width: 1, height: 20, background: 'rgba(20,19,16,.2)', margin: '0 4px' }} />
                   <LensBar lenses={lensesQ.data} active={activeLens} onChange={(a) => { fitted.current = false; setActiveLens(a) }} />
-                  {graph.focus && (
+                  {anchorChips.length > 0 && (
                     <>
                       <span style={{ width: 1, height: 20, background: 'rgba(20,19,16,.2)', margin: '0 4px' }} />
-                      <span style={{ color: '#7d776b' }}>{graph.focus.anchors.length > 1 ? 'Compare' : 'Focus'}</span>
-                      {graph.focus.anchors.map((a) => (
+                      <span style={{ color: '#7d776b' }}>{compareMode ? 'Compare' : 'Focus'}</span>
+                      {anchorChips.map((a) => (
                         <span key={a.id} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', background: 'rgba(143,67,49,.1)', color: ACCENT, border: `1px solid ${ACCENT}`, padding: '4px 9px', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase' }}>
                           ◎ {a.label}
                           <button onClick={() => removeAnchor(a.id)} title="remove" style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
                         </span>
                       ))}
-                      <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>
-                      {graph.focus.anchors.length === 1 && focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
-                      {graph.focus.anchors.length === 1 && <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>⌘-click a house to compare</span>}
+                      {graph.focus && <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>}
+                      {!compareMode && focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
+                      {compareMode && focusIds.length < 2 && <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, textTransform: 'none', letterSpacing: 0, color: ACCENT }}>pick another house to compare</span>}
+                      {!compareMode && <span style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>＋ a house to compare</span>}
                       <button onClick={clearFocus} style={{ ...lensBtn(false), border: 'none', color: '#7d776b' }}>full map</button>
                     </>
                   )}
@@ -853,6 +883,9 @@ export default function GraphDesk() {
                     }}
                     onRemove={inBoard ? () => boardItemMut.mutate({ slug: boardSlug!, nodeId: n.id, remove: true }) : undefined}
                     connectable={inBoard && n.type !== 'cluster'}
+                    onFocus={!inBoard && n.type === 'house' ? () => focusOn(n.id) : undefined}
+                    onCompare={!inBoard && n.type === 'house' ? () => toggleCompare(n.id) : undefined}
+                    inCompare={compareMode && focusIds.includes(n.id)}
                   />
                 ))}
               </div>
@@ -1116,7 +1149,7 @@ export default function GraphDesk() {
 }
 
 // ── node card ──
-function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable }: {
+function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable, onFocus, onCompare, inCompare }: {
   node: GraphNode
   followed: boolean
   pinned: boolean
@@ -1126,7 +1159,11 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   onOpen: () => void
   onRemove?: () => void
   connectable?: boolean
+  onFocus?: () => void   // house cards: isolate this house (single focus)
+  onCompare?: () => void // house cards: toggle this house in the comparison set
+  inCompare?: boolean    // house cards: currently an anchor in the comparison set
 }) {
+  const [hover, setHover] = useState(false)
   const isPattern = node.type === 'pattern'
   const isBoard = node.type === 'board'
   const isNote = node.type === 'note'
@@ -1149,13 +1186,28 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   // multi-focus: shared nodes (reached by ≥2 anchors) get emphasised — the overlap is the point;
   // anchors read as heavier poles. Both win over the hover highlight.
   if (node.shared && !node.anchor) Object.assign(base, { outline: `1.5px solid ${ACCENT}`, outlineOffset: 3, boxShadow: '3px 3px 0 rgba(143,67,49,.2)' })
-  if (node.anchor) Object.assign(base, { outline: `2px solid ${ACCENT}`, outlineOffset: 4, boxShadow: '4px 4px 0 rgba(143,67,49,.3)' })
+  if (node.anchor || inCompare) Object.assign(base, { outline: `2px solid ${ACCENT}`, outlineOffset: 4, boxShadow: '4px 4px 0 rgba(143,67,49,.3)' })  // pole (Venn) or a pending compare pick
 
   const showPinmark = pinned && !isPattern && !isBoard
 
+  const cornerBtn: React.CSSProperties = {
+    position: 'absolute', top: -11, zIndex: 4, cursor: 'pointer', background: '#fbfaf8', border: `1px solid ${ACCENT}`,
+    color: ACCENT, fontFamily: 'Newsreader, serif', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', padding: '2px 7px', lineHeight: 1.5,
+  }
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+
   return (
-    <div ref={innerRef} data-node={node.id} onClick={onOpen} style={base}>
+    <div ref={innerRef} data-node={node.id} onClick={onOpen} style={base}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       {showPinmark && <span style={{ position: 'absolute', top: -5, right: -5, width: 10, height: 10, background: ACCENT }} />}
+      {hover && onFocus && (
+        <button onMouseDown={stop} onClick={(e) => { stop(e); onFocus() }} title="Focus — isolate this house"
+          style={{ ...cornerBtn, left: -6 }}>◎ focus</button>
+      )}
+      {hover && onCompare && (
+        <button onMouseDown={stop} onClick={(e) => { stop(e); onCompare() }} title={inCompare ? 'Remove from compare' : 'Add to compare'}
+          style={{ ...cornerBtn, right: -6, ...(inCompare ? { background: ACCENT, color: '#fbfaf8' } : {}) }}>{inCompare ? '− remove' : '＋ compare'}</button>
+      )}
       {onRemove && (
         <button
           onMouseDown={(e) => e.stopPropagation()}

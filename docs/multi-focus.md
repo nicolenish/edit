@@ -22,10 +22,19 @@ ever drawing one.
 
 ## Interaction
 
-- **Plain click (index)** — focus one house. Unchanged.
-- **⌘ / ⇧-click (index)** — add / remove a house from the focus set.
-- **"+ Compare" affordance** — an explicit control (on index-row hover, and in the
-  focus bar) for discoverability; not everyone reaches for modifier-click.
+Compare is fully mouse/trackpad-driven — no modifier key required:
+
+- **Plain click (index)** — focus one house / open it. Unchanged.
+- **Index row hover → ＋** — a compare toggle appears at the right of each house row;
+  plain-click it to add the house (＋ → − when it's in the set). No keyboard needed.
+- **House node corners (hover)** — **◎ focus** (top-left) isolates that house;
+  **＋ compare / − remove** (top-right) toggles it in the set. This also relocates
+  focus out of the detail panel and onto the node itself, where it's discoverable.
+- **⌘ / ⇧-click (index)** — still works as a power-user shortcut to add/remove.
+- **Compare ≠ focus.** Compare builds a *selection*. The first pick stays on the full
+  map (the chosen house ringed, bar reads "pick another house to compare") so choosing
+  the next one is easy; two or more render the Venn. Focus (◎) is the separate
+  isolate-one gesture. Removing back down to one pick returns to the full map.
 - **Focus-set bar** — replaces the single focus header: a row of removable chips,
   one per anchor, plus "clear all". Same language as the lens pills.
 - **"Only shared" toggle** — collapse to the intersection: hide the exclusive
