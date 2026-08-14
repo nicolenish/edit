@@ -5,7 +5,10 @@ import type { GraphNode, GraphEdge, GraphNodeType, HouseStudy, IndexItem, ClipEd
 
 const STAGE_W = 2400
 const STAGE_H = 1600
-const NODE_TRANSITION = 'left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1)'
+const NODE_TRANSITION = 'left .75s cubic-bezier(.22,.7,.2,1), top .75s cubic-bezier(.22,.7,.2,1)'
+// a card's TARGET position (style.left/top is set instantly) vs offsetLeft (animates mid-flight)
+const styleX = (el: HTMLElement) => { const v = parseFloat(el.style.left); return isNaN(v) ? el.offsetLeft : v }
+const styleY = (el: HTMLElement) => { const v = parseFloat(el.style.top); return isNaN(v) ? el.offsetTop : v }
 const KEY = 'nishi.desk.v1'
 const STRIPE = 'repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px)'
 const ACCENT = '#8f4331' // terracotta — UI accent (buttons, pins)
@@ -255,8 +258,11 @@ export default function GraphDesk() {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
     Object.values(nodeRefs.current).forEach((n) => {
       if (!n || n.style.display === 'none') return
-      x0 = Math.min(x0, n.offsetLeft); y0 = Math.min(y0, n.offsetTop)
-      x1 = Math.max(x1, n.offsetLeft + n.offsetWidth); y1 = Math.max(y1, n.offsetTop + n.offsetHeight)
+      // measure the TARGET position (style.left), not offsetLeft — the latter reports the
+      // mid-flight value while a card animates, which would frame a moving target.
+      const nx = styleX(n), ny = styleY(n)
+      x0 = Math.min(x0, nx); y0 = Math.min(y0, ny)
+      x1 = Math.max(x1, nx + n.offsetWidth); y1 = Math.max(y1, ny + n.offsetHeight)
     })
     const pad = 44
     if (!isFinite(x0)) { x0 = 0; y0 = 0; x1 = STAGE_W; y1 = STAGE_H }
@@ -300,6 +306,22 @@ export default function GraphDesk() {
     applyTransform()
   }, [applyTransform])
 
+  // a focus/compare change (incl. the "only shared" toggle) swaps the node set; this signature
+  // changes only when the real (non-placeholder) layout does.
+  const focusSig = graph && focusKey ? `${focusKey}:${sharedOnly}:${graph.nodes.length}` : ''
+  // FLIP: right before a focus/compare re-layout moves the cards, record where each one currently
+  // sits, so the refit can animate them from here to their new spots (a plain style.left change set
+  // in a layout effect has no painted "from" baseline and would just jump).
+  const prevPos = useRef<Record<string, [number, number]>>({})
+  useLayoutEffect(() => {
+    const m: Record<string, [number, number]> = {}
+    // only cards that already have a position (persisted across the change) — a freshly-mounted
+    // node has no style.left yet and should appear at its spot, not fly in from the corner.
+    Object.entries(nodeRefs.current).forEach(([id, el]) => { if (el && el.style.left) m[id] = [el.offsetLeft, el.offsetTop] })
+    prevPos.current = m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSig])
+
   // position nodes before first paint (avoids a flash at 0,0)
   useLayoutEffect(() => { applyPositions() }, [applyPositions, view])
 
@@ -313,56 +335,75 @@ export default function GraphDesk() {
   // keepPreviousData the desk holds the *old* layout while the new one loads, so we must
   // reframe once the real data has arrived AND its new positions have been applied — otherwise
   // fit() measures the stale layout and the smaller set ends up off-centre.
-  const focusSig = graph && focusKey ? `${focusKey}:${sharedOnly}:${graph.nodes.length}` : ''
   useEffect(() => {
     if (!focusSig || isPlaceholderData) return
-    let hold = 0, settle = 0
+    let settle = 0
     const raf = requestAnimationFrame(() => {
-      // Cards animate their `left`/`top`, so offsetLeft reports the mid-flight position — fit()
-      // would frame a moving target. Jump straight to the new layout (transition off), fit against
-      // the settled positions, then restore the animation for later drags/folds.
+      // New node set → the cards animate to their new spots. Ease the CAMERA over the same beat so
+      // the frame glides while the nodes visibly re-arrange into it. fit()/measurements read each
+      // card's TARGET position (style.left), never its mid-flight offsetLeft.
+      const pan = panRef.current, stage = stageRef.current
+      if (pan) pan.style.transition = 'transform .75s cubic-bezier(.22,.7,.2,1)'
+      applyPositions()
+      // where the new layout is centred — entering cards emerge from here so the comparison visibly
+      // assembles, rather than just popping into place.
       const els = Object.values(nodeRefs.current).filter((el): el is HTMLDivElement => !!el)
-      els.forEach((el) => { el.style.transition = 'none' })
-      applyPositions(); fit(); fitted.current = true
-      requestAnimationFrame(() => els.forEach((el) => { if (el.isConnected) el.style.transition = NODE_TRANSITION }))
-      // establishing shot → then push in to a comfortable reading zoom, since fitting a big
-      // compare whole makes every card tiny. Fit stays the "zoom out"; this frames the things
-      // being compared (the anchors) with breathing room — so they stay in view, just larger.
-      const stage = stageRef.current, pan = panRef.current
-      if (stage && pan && comparing) {   // only compares push in; single focus already frames well
-        hold = window.setTimeout(() => {
-          // bbox of everything, plus the anchors' centre — the anchors now sit mid-block, so the
-          // content centre ≈ the pole line. Push in toward that centre so the poles stay framed.
-          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-          let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity
-          Object.entries(nodeRefs.current).forEach(([id, el]) => {
-            if (!el) return
-            x0 = Math.min(x0, el.offsetLeft); y0 = Math.min(y0, el.offsetTop)
-            x1 = Math.max(x1, el.offsetLeft + el.offsetWidth); y1 = Math.max(y1, el.offsetTop + el.offsetHeight)
-            if (focusIds.includes(id)) {
-              ax0 = Math.min(ax0, el.offsetLeft); ay0 = Math.min(ay0, el.offsetTop)
-              ax1 = Math.max(ax1, el.offsetLeft + el.offsetWidth); ay1 = Math.max(ay1, el.offsetTop + el.offsetHeight)
-            }
-          })
-          if (!isFinite(x0) || !isFinite(ax0)) return
+      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
+      els.forEach((el) => { const x = styleX(el), y = styleY(el); bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x + el.offsetWidth); by1 = Math.max(by1, y + el.offsetHeight) })
+      const ecx = (bx0 + bx1) / 2, ecy = (by0 + by1) / 2
+      // Animate each card that moves. A card carried over from the previous view FLIPs from where it
+      // sat; a brand-new card slides out from partway toward the centre — so a full map reducing to a
+      // comparison sends lots of cards travelling, not just the few that persist.
+      const anim: HTMLDivElement[] = []
+      els.forEach((el) => {
+        const tx2 = styleX(el), ty2 = styleY(el)
+        const prev = prevPos.current[el.getAttribute('data-node') || '']
+        const fromX = prev ? prev[0] : tx2 + (ecx - el.offsetWidth / 2 - tx2) * 0.62
+        const fromY = prev ? prev[1] : ty2 + (ecy - el.offsetHeight / 2 - ty2) * 0.62
+        if (Math.abs(fromX - tx2) > 1 || Math.abs(fromY - ty2) > 1) {
+          el.style.transition = 'none'; el.dataset.tx = String(tx2); el.dataset.ty = String(ty2)
+          el.style.left = `${fromX}px`; el.style.top = `${fromY}px`
+          anim.push(el)
+        }
+      })
+      if (pan) void pan.offsetWidth   // one reflow to lock in the "from" positions
+      anim.forEach((el) => {
+        el.style.transition = NODE_TRANSITION
+        el.style.left = `${el.dataset.tx}px`; el.style.top = `${el.dataset.ty}px`
+        delete el.dataset.tx; delete el.dataset.ty
+      })
+      fit(); fitted.current = true
+      // On a dense/narrow compare, push in toward the content centre — but never past what keeps
+      // both poles on screen. Folded into the same eased camera move (no separate delayed zoom).
+      if (stage && pan && comparing) {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+        let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity
+        Object.entries(nodeRefs.current).forEach(([id, el]) => {
+          if (!el) return
+          const nx = styleX(el), ny = styleY(el)
+          x0 = Math.min(x0, nx); y0 = Math.min(y0, ny)
+          x1 = Math.max(x1, nx + el.offsetWidth); y1 = Math.max(y1, ny + el.offsetHeight)
+          if (focusIds.includes(id)) {
+            ax0 = Math.min(ax0, nx); ay0 = Math.min(ay0, ny)
+            ax1 = Math.max(ax1, nx + el.offsetWidth); ay1 = Math.max(ay1, ny + el.offsetHeight)
+          }
+        })
+        if (isFinite(x0) && isFinite(ax0)) {
           const w = stage.clientWidth, h = stage.clientHeight, PAD = 90
-          // centre on the whole content; zoom for readability but never past what keeps both poles
-          // (their farthest edge from centre) on screen.
           const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
           const reachX = Math.max(Math.abs(ax0 - cx), Math.abs(ax1 - cx)) + 150
           const reachY = Math.max(Math.abs(ay0 - cy), Math.abs(ay1 - cy)) + 150
           const kPoles = Math.min((w / 2 - PAD) / reachX, (h / 2 - PAD) / reachY)
           const k = Math.max(scale.current, Math.min(0.62, kPoles))
-          if (k <= scale.current + 0.01) return
-          pan.style.transition = 'transform .7s cubic-bezier(.2,.7,.2,1)'
-          tx.current = w / 2 - cx * k; ty.current = h / 2 - cy * k
-          scale.current = k
-          applyTransform()
-          settle = window.setTimeout(() => { if (panRef.current) panRef.current.style.transition = '' }, 720)
-        }, 340)
+          if (k > scale.current + 0.01) {
+            tx.current = w / 2 - cx * k; ty.current = h / 2 - cy * k; scale.current = k
+            applyTransform()   // overrides fit's transform → the eased move lands on the push-in target
+          }
+        }
       }
+      settle = window.setTimeout(() => { if (panRef.current) panRef.current.style.transition = '' }, 650)
     })
-    return () => { cancelAnimationFrame(raf); clearTimeout(hold); clearTimeout(settle); if (panRef.current) panRef.current.style.transition = '' }
+    return () => { cancelAnimationFrame(raf); clearTimeout(settle); if (panRef.current) panRef.current.style.transition = '' }
   }, [focusSig, isPlaceholderData, applyPositions, fit, applyTransform, focusIds, comparing])
 
   // wire pan / zoom / drag once the stage is mounted (graph view only)
