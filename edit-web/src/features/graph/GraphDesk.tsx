@@ -44,11 +44,12 @@ export default function GraphDesk() {
   // full map until you've picked a second house, so you can keep choosing) from a single focus.
   const [focusIds, setFocusIds] = useState<string[]>([])
   const [compareMode, setCompareMode] = useState(false)
+  const [sharedOnly, setSharedOnly] = useState(false)     // compare: collapse to the intersection
   const [focusDepth, setFocusDepth] = useState(1)
   const comparing = compareMode && focusIds.length >= 2   // ≥2 → the Venn renders
   // one pending compare pick keeps the full map (focusKey null) so the next pick is easy
   const focusKey = comparing ? focusIds.join(',') : (!compareMode && focusIds.length === 1 ? focusIds[0] : null)
-  const { data: graph, isLoading } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth)
+  const { data: graph, isLoading } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, comparing && sharedOnly)
   // multi-focus is a fresh, transient view: it uses the server's Venn coords and neither reads
   // nor writes the saved arrangement, so poles can't snap back to old main-desk positions.
   const multiRef = useRef(false)
@@ -472,7 +473,7 @@ export default function GraphDesk() {
   // focus mode — isolate ONE node's neighbourhood; expand walks further out; clear returns to the map.
   const focusOn = useCallback((id: string) => {
     setOpen(null); setStudy(null); setFocusDepth(1); fitted.current = false
-    setCompareMode(false); setFocusIds([id])
+    setCompareMode(false); setSharedOnly(false); setFocusIds([id])
   }, [])
   // compare — toggle a house in the comparison selection (cap 5). One pick stays on the full map;
   // two or more render the Venn. Only refit when the desk actually crosses that threshold.
@@ -485,10 +486,11 @@ export default function GraphDesk() {
       return next
     })
   }, [])
-  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setCompareMode(false); setFocusIds([]) }, [])
+  const clearFocus = useCallback(() => { fitted.current = false; setFocusDepth(1); setCompareMode(false); setSharedOnly(false); setFocusIds([]) }, [])
+  const toggleSharedOnly = useCallback(() => { fitted.current = false; setSharedOnly((s) => !s) }, [])
   const removeAnchor = useCallback((id: string) => {
     fitted.current = false
-    setFocusIds((cur) => { const next = cur.filter((x) => x !== id); if (!next.length) setCompareMode(false); return next })
+    setFocusIds((cur) => { const next = cur.filter((x) => x !== id); if (!next.length) setCompareMode(false); if (next.length < 2) setSharedOnly(false); return next })
   }, [])
   const expandFocus = useCallback(() => { fitted.current = false; setFocusDepth((d) => Math.min(3, d + 1)) }, [])
 
@@ -768,6 +770,7 @@ export default function GraphDesk() {
                       ))}
                       {graph.focus && <span style={{ color: '#a0968d' }}>{graph.focus.count}</span>}
                       {!compareMode && focusDepth < 3 && <button onClick={expandFocus} style={{ ...lensBtn(false), color: '#7d776b' }}>expand</button>}
+                      {comparing && <button onClick={toggleSharedOnly} title="Show only what every house shares" style={lensBtn(sharedOnly)}>only shared</button>}
                       <button onClick={clearFocus} style={{ ...lensBtn(false), border: 'none', color: '#7d776b' }}>full map</button>
                     </>
                   )}

@@ -9,22 +9,22 @@ import { MOCK_GRAPH, MOCK_DETAILS } from './mock'
 export const USE_MOCK = false
 
 export const graphKeys = {
-  graph: (focus?: string | null, lens?: Record<string, string[]>, depth?: number) => ['graph', focus ?? null, lens ?? null, depth ?? 1] as const,
+  graph: (focus?: string | null, lens?: Record<string, string[]>, depth?: number, sharedOnly?: boolean) => ['graph', focus ?? null, lens ?? null, depth ?? 1, !!sharedOnly] as const,
   node: (id: string) => ['graph-node', id] as const,
 }
 
-export function useGraph(focus?: string | null, lens?: Record<string, string[]>, depth?: number) {
+export function useGraph(focus?: string | null, lens?: Record<string, string[]>, depth?: number, sharedOnly?: boolean) {
   return useQuery<GraphResponse>({
     // keep the previous desk on screen while a lens/focus change loads — otherwise the whole
     // view (and any open lens picker) would unmount to the loading state on every pick
     placeholderData: keepPreviousData,
-    queryKey: graphKeys.graph(focus, lens, depth),
+    queryKey: graphKeys.graph(focus, lens, depth, sharedOnly),
     queryFn: async () => {
       if (USE_MOCK) return MOCK_GRAPH
       // each facet's picks go over as one comma-separated value
       const lensParams = Object.fromEntries(Object.entries(lens || {}).filter(([, v]) => v.length).map(([k, v]) => [k, v.join(',')]))
       const { data } = await api.get<GraphResponse>('/graph/', {
-        params: { ...(focus ? { focus, ...(depth && depth > 1 ? { depth } : {}) } : {}), ...lensParams },
+        params: { ...(focus ? { focus, ...(depth && depth > 1 ? { depth } : {}) } : {}), ...(sharedOnly ? { shared: 1 } : {}), ...lensParams },
       })
       return data
     },

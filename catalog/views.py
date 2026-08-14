@@ -130,7 +130,8 @@ def graph(request):
         depth = max(1, min(3, int(request.GET.get("depth", 1))))
     except (TypeError, ValueError):
         depth = 1
-    return Response(graphlib.build_graph(focus=request.GET.get("focus"), lens=lens or None, depth=depth))
+    shared_only = request.GET.get("shared") in ("1", "true")
+    return Response(graphlib.build_graph(focus=request.GET.get("focus"), lens=lens or None, depth=depth, shared_only=shared_only))
 
 
 @api_view(["GET"])

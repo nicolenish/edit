@@ -92,8 +92,11 @@ laid out deterministically as **tidy, non-overlapping grid regions**:
    poles with exclusives fanned out and shared nodes pulled to centre; anchor pole
    ring + shared highlight. Multi-focus lays out fresh (ignores saved/posOverride) and
    drags are transient, so the main arrangement is never disturbed.
-2. **Comparison emphasis.** "Only shared" intersection toggle (shared-by-all) — the
-   Venn payoff. Shared-by-≥2 highlight already lands in Phase 1.
+2. **Comparison emphasis.** ✅ *Shipped 2026-08-14.* "Only shared" toggle in the
+   compare bar collapses to the intersection (shared-by-all): drops every pole's
+   exclusive pieces, keeps the anchors + the core they all share, and wires each
+   anchor straight to the shared aesthetics so nothing floats. Shared-by-≥2 highlight
+   already landed in Phase 1.
 3. **(Optional) Reach.** Compare from the house panel and on-desk; generalize the
    affordances beyond houses.
 

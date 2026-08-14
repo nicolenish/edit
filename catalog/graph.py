@@ -430,10 +430,13 @@ def _focus_subgraph(focus_id, pieces, by_product, brands_by_key, follow_date, sa
     return {"nodes": nodes, "edges": edges}
 
 
-def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_date, saved, depth):
+def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_date, saved, depth, shared_only=False):
     """Several anchors at once: union their neighbourhoods, tag the nodes shared by ≥2 of
     them, and seed a Venn — anchors on poles, exclusive neighbours fanned out past their own
-    pole, shared nodes pulled toward the centre. Positions are seeds; drags still override."""
+    pole, shared nodes pulled toward the centre. Positions are seeds; drags still override.
+
+    `shared_only` collapses to the intersection: keep the anchors and only the nodes reached by
+    *every* anchor, dropping each pole's exclusive fan — the "why are these kin?" view."""
     import math
     anchors = list(dict.fromkeys(focus_ids))[:FOCUS_MAX_ANCHORS]   # de-dup, cap at 5
     per = {a: _focus_members(a, pieces, by_product, brands_by_key, depth) for a in anchors}
@@ -441,6 +444,9 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
     union = set().union(*per.values()) if per else set()
     # which anchors reach each node — anchors themselves are poles, never "shared"
     reached_by = {nid: [a for a in anchors if nid in per[a]] for nid in union}
+    if shared_only:                # keep anchors + only what every anchor reaches (the intersection)
+        union = anchor_set | {m for m in union if m not in anchor_set and len(reached_by[m]) == len(anchors)}
+        reached_by = {nid: reached_by[nid] for nid in union}
 
     # ── Venn layout: each region is a tidy, non-overlapping grid block. The shared cards sit in
     # a block at the centre; each anchor + its exclusives form a block placed radially outward, so
@@ -511,6 +517,16 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
     nodes, mp, mh, mpat = _build_focus_nodes(union, place, by_product, brands_by_key, follow_date)
     edges = _build_focus_edges(nodes, mp, mh, mpat)
 
+    if shared_only:
+        # the pieces that carried a shared pattern are gone, so wire each anchor straight to the
+        # shared aesthetics it exhibits — otherwise the pattern cards would float unconnected.
+        present = {nd["id"] for nd in nodes}
+        for nd in nodes:
+            if nd["type"] == "pattern":
+                for a in anchors:
+                    if a in present:
+                        edges.append({"from": a, "to": nd["id"], "type": "exhibits", "derived": True, "dim": "pattern", "dashed": True})
+
     for nd in nodes:                   # decorate poles + shared degree for the client
         if nd["id"] in anchor_set:
             nd["anchor"] = True
@@ -524,7 +540,7 @@ def _focus_subgraph_multi(focus_ids, pieces, by_product, brands_by_key, follow_d
 
 
 # ── build the desk ──
-def build_graph(focus: str | None = None, lens: dict | None = None, depth: int = 1) -> dict:
+def build_graph(focus: str | None = None, lens: dict | None = None, depth: int = 1, shared_only: bool = False) -> dict:
     pieces, boards, follow_date = _load_corpus()
     pieces = _apply_lens(pieces, lens)
     # under a lens, clips / boards / suggestions must also match it — else they leak across
@@ -765,7 +781,7 @@ def build_graph(focus: str | None = None, lens: dict | None = None, depth: int =
                 focus_meta = {"id": focus_ids[0], "label": label, "count": len(node_ids),
                               "anchors": [{"id": focus_ids[0], "label": label}]}
         else:
-            fg = _focus_subgraph_multi(focus_ids, pieces, by_product_str, brands_by_key, follow_date, saved, depth)
+            fg = _focus_subgraph_multi(focus_ids, pieces, by_product_str, brands_by_key, follow_date, saved, depth, shared_only)
             if fg["nodes"]:
                 nodes, edges = fg["nodes"], fg["edges"]
                 node_ids = {n["id"] for n in nodes}
