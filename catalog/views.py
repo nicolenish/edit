@@ -123,7 +123,16 @@ def feed(request):
 # ── taste graph (docs/taste-graph.md §8) ──
 @api_view(["GET"])
 def graph(request):
-    return Response(graphlib.build_graph(focus=request.GET.get("focus")))
+    # each facet may carry multiple comma-separated values (OR within, AND across facets)
+    lens = {k: [v for v in request.GET[k].split(",") if v]
+            for k in ("region", "tier", "aesthetic", "kindred", "state") if request.GET.get(k)}
+    return Response(graphlib.build_graph(focus=request.GET.get("focus"), lens=lens or None))
+
+
+@api_view(["GET"])
+def graph_lenses(request):
+    """Available facet lenses (region / tier / aesthetic / kindred / state) with counts."""
+    return Response(graphlib.build_graph_lenses())
 
 
 @api_view(["GET"])

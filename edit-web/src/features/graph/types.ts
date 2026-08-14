@@ -74,6 +74,16 @@ export interface GraphResponse {
   focus: string | null
 }
 
+// Lenses — facet slices the desk can filter to (docs/graph-views.md A1).
+export interface LensOption { value: string; label: string; count: number }
+export interface GraphLenses {
+  region: LensOption[]
+  tier: LensOption[]
+  aesthetic: LensOption[]
+  kindred: LensOption[]
+  state: LensOption[]
+}
+
 // The List view — the whole library grouped with thumbnails.
 export interface ListItem {
   node_id: string

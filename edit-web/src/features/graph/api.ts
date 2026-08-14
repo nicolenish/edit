@@ -3,24 +3,37 @@
 // /api/graph/ (docs §8) are live — the component code doesn't change.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import type { GraphResponse, NodeDetail, HouseStudy, BoardGraph, GraphList } from './types'
+import type { GraphResponse, NodeDetail, HouseStudy, BoardGraph, GraphList, GraphLenses } from './types'
 import { MOCK_GRAPH, MOCK_DETAILS } from './mock'
 
 export const USE_MOCK = false
 
 export const graphKeys = {
-  graph: (focus?: string | null) => ['graph', focus ?? null] as const,
+  graph: (focus?: string | null, lens?: Record<string, string[]>) => ['graph', focus ?? null, lens ?? null] as const,
   node: (id: string) => ['graph-node', id] as const,
 }
 
-export function useGraph(focus?: string | null) {
+export function useGraph(focus?: string | null, lens?: Record<string, string[]>) {
   return useQuery<GraphResponse>({
-    queryKey: graphKeys.graph(focus),
+    queryKey: graphKeys.graph(focus, lens),
     queryFn: async () => {
       if (USE_MOCK) return MOCK_GRAPH
+      // each facet's picks go over as one comma-separated value
+      const lensParams = Object.fromEntries(Object.entries(lens || {}).filter(([, v]) => v.length).map(([k, v]) => [k, v.join(',')]))
       const { data } = await api.get<GraphResponse>('/graph/', {
-        params: focus ? { focus } : {},
+        params: { ...(focus ? { focus } : {}), ...lensParams },
       })
+      return data
+    },
+  })
+}
+
+// The lens picker's options — available facet slices with counts.
+export function useGraphLenses() {
+  return useQuery<GraphLenses>({
+    queryKey: ['graph-lenses'],
+    queryFn: async () => {
+      const { data } = await api.get<GraphLenses>('/graph/lenses/')
       return data
     },
   })

@@ -11,6 +11,7 @@ urlpatterns = [
     path("feed/", views.feed),
     path("discover/", views.discover),
     path("graph/", views.graph),
+    path("graph/lenses/", views.graph_lenses),
     path("graph/list/", views.graph_list),
     path("graph/positions/", views.graph_positions),
     path("graph/board/<slug:slug>/items/", views.graph_board_items),

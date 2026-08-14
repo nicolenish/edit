@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal } from './api'
-import type { GraphNode, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem } from './types'
+import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses } from './api'
+import type { GraphNode, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem, GraphLenses } from './types'
 
 const STAGE_W = 2400
 const STAGE_H = 1600
@@ -34,7 +34,13 @@ function loadPersisted(): Persisted {
 }
 
 export default function GraphDesk() {
-  const { data: graph, isLoading } = useGraph()
+  // NB: the `lens` state below is really the *arrangement* toggle (Yours / By day clipped) —
+  // it controls node position. `activeLens` is the new facet *filter* (docs/graph-views.md A1),
+  // which re-composes the desk to a slice (region / tier / aesthetic / kindred / state).
+  const [activeLens, setActiveLens] = useState<Record<string, string[]>>({})
+  const hasLens = Object.keys(activeLens).length > 0
+  const { data: graph, isLoading } = useGraph(undefined, hasLens ? activeLens : undefined)
+  const lensesQ = useGraphLenses()
   const [view, setView] = useState<View>('graph')
   const listQ = useGraphList(view === 'list')
   const persisted = useRef<Persisted>(loadPersisted())
@@ -59,6 +65,10 @@ export default function GraphDesk() {
   const deskGraph = inBoard ? boardQ.data : graph            // what the canvas draws
   const deskNodes = deskGraph?.nodes ?? []
   const deskEdges = deskGraph?.edges ?? []
+  // on a board the auto-kindred lines are an optional overlay (docs/graph-views.md B2): a
+  // board is your clean canvas by default; "show kinship" fades the system's lines in.
+  const [showKinship, setShowKinship] = useState(false)
+  const shownEdges = inBoard && !showKinship ? deskEdges.filter((e) => e.dim === 'authored') : deskEdges
   const boardPos = useRef<Record<string, [number, number]>>({}) // per-board drag overrides
   const boardItemMutRef = useRef(boardItemMut)                    // latest, for the drag effect
   boardItemMutRef.current = boardItemMut
@@ -569,6 +579,8 @@ export default function GraphDesk() {
                       : { ...lensBtn(false), color: '#7d776b' }}>
                     {boardQ.data?.board.isOpenThread ? '★ open thread' : 'make open thread'}
                   </button>
+                  <button onClick={() => setShowKinship((s) => !s)} title="Overlay the system's kindred lines"
+                    style={{ ...lensBtn(showKinship), color: showKinship ? '#fbfaf8' : '#7d776b' }}>show kinship</button>
                   <span style={{ color: '#a09a8d' }}>{boardQ.data ? `${boardQ.data.board.count} things` : ''}</span>
                 </>
               ) : (
@@ -576,6 +588,8 @@ export default function GraphDesk() {
                   <span style={{ color: '#7d776b' }}>Arrangement</span>
                   <button onClick={() => switchLens('free')} style={lensBtn(lens === 'free')}>Yours</button>
                   <button onClick={() => switchLens('diary')} style={lensBtn(lens === 'diary')}>By day clipped</button>
+                  <span style={{ width: 1, height: 20, background: 'rgba(20,19,16,.2)', margin: '0 4px' }} />
+                  <LensBar lenses={lensesQ.data} active={activeLens} onChange={(a) => { fitted.current = false; setActiveLens(a) }} />
                 </>
               )}
             </div>
@@ -602,25 +616,25 @@ export default function GraphDesk() {
                 <svg ref={svgRef} width={STAGE_W} height={STAGE_H} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}>
                   {/* direct — solid, a factual membership (piece → house) */}
                   <g stroke={INK} strokeOpacity=".3" strokeWidth="1">
-                    {deskEdges.filter((e) => e.dim === 'direct').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
+                    {shownEdges.filter((e) => e.dim === 'direct').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
                   {/* indirect — derived pattern trait, dotted neutral */}
                   <g stroke={INK} strokeOpacity=".34" strokeWidth="1" strokeDasharray={DOT} strokeLinecap="round">
-                    {deskEdges.filter((e) => e.dim === 'pattern').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
+                    {shownEdges.filter((e) => e.dim === 'pattern').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
                   {/* kindred houses — dotted, coloured by why (aesthetic / region / price) */}
                   <g stroke={LINE_AESTHETIC} strokeWidth="1.9" strokeDasharray={DOT} strokeLinecap="round">
-                    {deskEdges.filter((e) => e.dim === 'aesthetic').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
+                    {shownEdges.filter((e) => e.dim === 'aesthetic').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
                   <g stroke={LINE_REGION} strokeWidth="1.9" strokeDasharray={DOT} strokeLinecap="round">
-                    {deskEdges.filter((e) => e.dim === 'region').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
+                    {shownEdges.filter((e) => e.dim === 'region').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
                   <g stroke={LINE_PRICE} strokeWidth="1.9" strokeDasharray={DOT} strokeLinecap="round">
-                    {deskEdges.filter((e) => e.dim === 'price').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
+                    {shownEdges.filter((e) => e.dim === 'price').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
                   {/* pins — your deliberate act, solid accent ("pinning draws the line") */}
                   <g stroke={ACCENT} strokeWidth="1.6">
-                    {deskEdges.filter((e) => e.dim === 'pin').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
+                    {shownEdges.filter((e) => e.dim === 'pin').map((e, i) => <line key={i} data-from={e.from} data-to={e.to} />)}
                   </g>
                 </svg>
 
@@ -1223,6 +1237,95 @@ function ListRow({ item, kindOf, onOpen }: { item: ListItem; kindOf: string; onO
       </div>
     </button>
   )
+}
+
+// the lens picker — filter the desk to a facet slice; save/apply named views (localStorage).
+const SAVED_LENS_KEY = 'nishi.savedLenses'
+type SavedLens = { name: string; spec: Record<string, string[]> }
+function loadSavedLenses(): SavedLens[] {
+  try {
+    return (JSON.parse(localStorage.getItem(SAVED_LENS_KEY) || '[]') as SavedLens[])
+      // migrate any old single-value specs to arrays
+      .map((s) => ({ ...s, spec: Object.fromEntries(Object.entries(s.spec).map(([k, v]) => [k, Array.isArray(v) ? v : [v]])) }))
+  } catch { return [] }
+}
+const LENS_FACETS: { key: keyof GraphLenses; label: string }[] = [
+  { key: 'region', label: 'Region' }, { key: 'tier', label: 'Price' },
+  { key: 'aesthetic', label: 'Aesthetic' }, { key: 'kindred', label: 'Kindred' }, { key: 'state', label: 'State' },
+]
+function LensBar({ lenses, active, onChange }: { lenses?: GraphLenses; active: Record<string, string[]>; onChange: (a: Record<string, string[]>) => void }) {
+  const [picker, setPicker] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveName, setSaveName] = useState('')
+  const [saved, setSaved] = useState<SavedLens[]>(loadSavedLenses)
+  const activeKeys = Object.keys(active).filter((k) => active[k]?.length)
+  const persist = (list: SavedLens[]) => { setSaved(list); try { localStorage.setItem(SAVED_LENS_KEY, JSON.stringify(list)) } catch { /* private */ } }
+  // toggle a value within a facet (multi-select): add if absent, drop if present
+  const toggle = (k: string, v: string) => {
+    const cur = active[k] || []
+    const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]
+    onChange(next.length ? { ...active, [k]: next } : omit(active, k))
+  }
+  const chip: React.CSSProperties = { cursor: 'pointer', background: 'none', border: '1px solid rgba(20,19,16,.3)', padding: '4px 9px', fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#45413a' }
+  const labelFor = (k: string, v: string) => (lenses?.[k as keyof GraphLenses] || []).find((o) => o.value === v)?.label || v
+  return (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ color: '#7d776b' }}>Lens</span>
+      {activeKeys.flatMap((k) => active[k].map((v) => (
+        <span key={k + ':' + v} style={{ ...chip, background: 'rgba(143,67,49,.1)', color: ACCENT, borderColor: ACCENT, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          {labelFor(k, v)}
+          <button onClick={() => toggle(k, v)} style={{ cursor: 'pointer', background: 'none', border: 'none', color: ACCENT, padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
+        </span>
+      )))}
+      <button onClick={() => setPicker((p) => !p)} style={chip}>{activeKeys.length ? '＋' : 'All ▾'}</button>
+      {activeKeys.length > 0 && <button onClick={() => onChange({})} style={{ ...chip, border: 'none', color: '#7d776b' }}>clear</button>}
+      {activeKeys.length > 0 && !saving && <button onClick={() => { setSaving(true); setSaveName('') }} style={{ ...chip, border: 'none', color: ACCENT }}>save view</button>}
+      {saving && (
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <input autoFocus value={saveName} onChange={(e) => setSaveName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && saveName.trim()) { persist([...saved, { name: saveName.trim(), spec: active }]); setSaving(false) } }}
+            placeholder="name this view" style={{ border: 'none', borderBottom: `1px solid ${INK}`, background: 'none', padding: '3px 2px', fontFamily: 'Newsreader, serif', fontSize: 12, outline: 'none', width: 130 }} />
+          <button onClick={() => { if (saveName.trim()) { persist([...saved, { name: saveName.trim(), spec: active }]); setSaving(false) } }} style={chip}>save</button>
+          <button onClick={() => setSaving(false)} style={{ ...chip, border: 'none', color: '#7d776b' }}>×</button>
+        </span>
+      )}
+      {saved.map((s, i) => (
+        <span key={i} style={{ ...chip, display: 'inline-flex', gap: 6, alignItems: 'center', fontStyle: 'italic' }}>
+          <button onClick={() => onChange(s.spec)} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#45413a', padding: 0, font: 'inherit' }}>{s.name}</button>
+          <button onClick={() => persist(saved.filter((_, j) => j !== i))} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#a09a8d', padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
+        </span>
+      ))}
+      {picker && lenses && (
+        <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 20, background: '#fbfaf8', border: `1px solid ${INK}`, boxShadow: '0 8px 30px -14px rgba(20,19,16,.9)', padding: 12, display: 'grid', gap: 10, minWidth: 260, maxHeight: 380, overflow: 'auto' }}>
+          <div style={{ fontFamily: 'Reenie Beanie, cursive', fontSize: 20, color: '#7d776b', margin: '-2px 0 2px' }}>pick as many as you like — done when you close</div>
+          {LENS_FACETS.map(({ key, label }) => {
+            const opts = lenses[key] || []
+            if (!opts.length) return null
+            return (
+              <div key={key}>
+                <div style={{ fontFamily: 'Newsreader, serif', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: '#7d776b', paddingBottom: 5 }}>{label}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {opts.map((o) => {
+                    const on = (active[key] || []).includes(o.value)
+                    return (
+                      <button key={o.value} onClick={() => toggle(key, o.value)}
+                        style={{ cursor: 'pointer', background: on ? ACCENT : 'none', color: on ? '#fbfaf8' : '#45413a', border: '1px solid rgba(20,19,16,.28)', padding: '3px 8px', fontFamily: 'Newsreader, serif', fontSize: 12 }}>
+                        {o.label} <span style={{ color: on ? 'rgba(251,250,248,.7)' : '#a09a8d' }}>{o.count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+          <button onClick={() => setPicker(false)} style={{ ...chip, justifySelf: 'start', marginTop: 2 }}>Done</button>
+        </div>
+      )}
+    </div>
+  )
+}
+function omit(obj: Record<string, string[]>, k: string): Record<string, string[]> {
+  const n = { ...obj }; delete n[k]; return n
 }
 
 // the moodboard add bar — board-only note / image / color / link that never enters the graph.

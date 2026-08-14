@@ -25,6 +25,7 @@ DESK_DIM_CAP = 2        # …but at most this many from any one dimension, so th
 N_DESK_HOUSES = 7       # houses that embody the desk patterns
 N_DESK_PIECES = 8       # pinned pieces + exemplars
 N_SUGGEST = 5           # suggested houses — diversified across aesthetic / region / price
+N_DESK_CLIPS = 12       # most-recent clips on the desk; older ones stay in the List/index
 EMBODY_MIN = 2          # a house embodies a pattern only if ≥ this many of its pieces carry it
 EMBODY_TOP_HOUSES = 3   # …and only the strongest few houses per pattern draw the line
 EXHIBIT_TOP_PATTERNS = 3  # a piece draws lines to at most its strongest few patterns
@@ -161,9 +162,129 @@ def _seed_xy(kind, i):
     return [x0 + c * xs + jx, y0 + r * ys + jy]
 
 
+# ── lenses: filter the corpus to a deliberate slice before composing (docs/graph-views.md A1) ──
+# A lens facet holds a *list* of values — multiple picks OR within a category, AND across
+# categories. `_lens_vals` tolerates either a str or a list for robustness.
+def _lens_vals(lens, key):
+    v = (lens or {}).get(key)
+    if not v:
+        return []
+    return [v] if isinstance(v, str) else list(v)
+
+
+def _brand_region_ok(b, regions):
+    btags = [t.lower() for t in (b.tags or [])]
+    city = (b.city or "").lower()
+    return any(r in btags or city == r for r in regions)
+
+
+def _recent_cutoff():
+    from django.utils import timezone
+    return timezone.now() - timezone.timedelta(days=30)
+
+
+def _apply_lens(pieces, lens):
+    """Keep only the pieces that match the active lens. Region/tier/aesthetic filter by the
+    piece's house; kindred by the piece's own tags; state by pinned/recency. Within a facet
+    the picks are OR'd; across facets they're AND'd."""
+    if not lens:
+        return pieces
+    out = pieces
+    regions = [r.lower() for r in _lens_vals(lens, "region")]
+    if regions:
+        out = [pc for pc in out if _brand_region_ok(pc.brand, regions)]
+    tiers = _lens_vals(lens, "tier")
+    if tiers:
+        out = [pc for pc in out if pc.brand.tier in tiers]
+    aesthetics = [a.lower() for a in _lens_vals(lens, "aesthetic")]
+    if aesthetics:
+        out = [pc for pc in out if any(
+            a in [t.lower() for t in (pc.brand.tags or [])] or any(a == t.split(":", 1)[-1].lower() for t in pc.tags)
+            for a in aesthetics)]
+    kindreds = _lens_vals(lens, "kindred")
+    if kindreds:
+        out = [pc for pc in out if any(k in pc.tags for k in kindreds)]
+    states = _lens_vals(lens, "state")
+    if states:
+        cutoff = _recent_cutoff()
+        out = [pc for pc in out if ("pinned" in states and pc.pinned)
+               or ("recent" in states and pc.date and pc.date >= cutoff)]
+    return out
+
+
+def _house_matches_lens(b, lens):
+    """A bare house/suggestion matches only the brand-level facets (region/tier/aesthetic);
+    kindred & state are piece/clip-level, so a bare house can't satisfy them."""
+    if not lens:
+        return True
+    if _lens_vals(lens, "kindred") or _lens_vals(lens, "state"):
+        return False
+    regions = [r.lower() for r in _lens_vals(lens, "region")]
+    if regions and not _brand_region_ok(b, regions):
+        return False
+    tiers = _lens_vals(lens, "tier")
+    if tiers and b.tier not in tiers:
+        return False
+    aesthetics = [a.lower() for a in _lens_vals(lens, "aesthetic")]
+    if aesthetics and not any(a in [t.lower() for t in (b.tags or [])] for a in aesthetics):
+        return False
+    return True
+
+
+def _clip_matches_lens(clip, lens, brand):
+    """Does a clip belong under the lens? `brand` is clip.brand resolved to a Brand (or None).
+    Brand-level facets need a resolvable house; kindred matches the clip's own tags."""
+    if not lens:
+        return True
+    regions = [r.lower() for r in _lens_vals(lens, "region")]
+    if regions and not (brand and _brand_region_ok(brand, regions)):
+        return False
+    tiers = _lens_vals(lens, "tier")
+    if tiers and not (brand and brand.tier in tiers):
+        return False
+    aesthetics = [a.lower() for a in _lens_vals(lens, "aesthetic")]
+    if aesthetics:
+        clip_vals = [str(t).replace("-", " ").lower() for t in (clip.tags or [])]
+        btags = [t.lower() for t in (brand.tags or [])] if brand else []
+        if not any(a in btags or a in clip_vals for a in aesthetics):
+            return False
+    kindreds = _lens_vals(lens, "kindred")
+    if kindreds:
+        clip_vals = [str(t).replace("-", " ").lower() for t in (clip.tags or [])]
+        if not any(k.split(":", 1)[-1].replace("-", " ").lower() in clip_vals for k in kindreds):
+            return False
+    states = _lens_vals(lens, "state")
+    if states:
+        if not (("pinned" in states and clip.board)
+                or ("recent" in states and clip.created_at >= _recent_cutoff())):
+            return False
+    return True
+
+
+def _board_matches_lens(board, lens, filtered_ids, brand_by_key):
+    """A board shows under a lens only if it holds something matching it — a member piece
+    that survived the corpus filter, or a member house that matches the brand-level facets."""
+    if not lens:
+        return True
+    for it in board.items.all():
+        nid = it.node_id
+        if nid.startswith("piece:") and nid.split(":", 1)[1] in filtered_ids:
+            return True
+        if nid.startswith("house:"):
+            b = brand_by_key.get(nid.split(":", 1)[1])
+            if b and _house_matches_lens(b, lens):
+                return True
+    return False
+
+
 # ── build the desk ──
-def build_graph(focus: str | None = None) -> dict:
+def build_graph(focus: str | None = None, lens: dict | None = None) -> dict:
     pieces, boards, follow_date = _load_corpus()
+    pieces = _apply_lens(pieces, lens)
+    # under a lens, clips / boards / suggestions must also match it — else they leak across
+    # every slice. These support the gates below.
+    lens_ids = {str(pc.product.id) for pc in pieces} if lens else set()
+    lens_brands = {b.key: b for b in Brand.objects.all()} if lens else {}
     patterns = derive_patterns(pieces)
     # strongest patterns, but capped per dimension so the desk spans palette / material /
     # neckline / descriptor rather than eight near-synonymous adjectives.
@@ -244,21 +365,28 @@ def build_graph(focus: str | None = None) -> dict:
         add_house(pc.brand, nodes, node_ids, saved, follow_date)  # ensure the piece's house is present
 
     for i, b in enumerate(boards):
+        if lens and not _board_matches_lens(b, lens, lens_ids, lens_brands):
+            continue  # under a lens, only boards holding something matching it
         x, y = _seed_xy("board", i)
         add({"id": board_id(b), "type": "board", "label": b.name,
              "subtitle": f"{b.pins.count()} things", "tags": [], "image": None,
              "date": _iso(b.created_at), "x": x, "y": y})
 
     for i, (cand, _anchor, _dim, reason) in enumerate(suggest_specs):
+        if lens and not _house_matches_lens(cand, lens):
+            continue  # a suggestion must fit the active slice too
         x, y = _seed_xy("clipping", i)  # reuse the right-edge lane for ghosts
         add({"id": house_id(cand), "type": "house", "label": cand.name,
              "subtitle": reason, "tags": (cand.tags or [])[:2], "image": cand.hero_image_url or None,
              "followed": False, "suggested": True, "date": None, "x": x, "y": y})
 
-    # captured clips — the inbox (your notes / clippings / clipped pieces & houses)
+    # captured clips — the inbox (your notes / clippings / clipped pieces & houses). Only the
+    # most recent N land on the desk (older ones stay searchable in the List/index) — clips are
+    # the one uncapped source, so this keeps the desk from filling up (docs/graph-views.md).
     from library.models import Clip as ClipModel
     _KIND_TYPE = {"note": "note", "clip": "clipping", "piece": "piece", "house": "house"}
-    clips = list(ClipModel.objects.select_related("board").all())
+    all_clips = list(ClipModel.objects.select_related("board").order_by("-created_at"))
+    clips = all_clips[:N_DESK_CLIPS]
     clip_pins, clip_house_edges, clip_pattern_edges = [], [], []
     # a clip's freeform tags ("black", "halter neckline") → the desk's kindred nodes, matched
     # on the pattern's value (the part after its dim), so a clip joins the traits it shares.
@@ -268,6 +396,13 @@ def build_graph(focus: str | None = None) -> dict:
         val_to_pattern.setdefault(val, pat.tag)
     for i, clip in enumerate(clips):
         nid = f"clip:{clip.id}"
+        # resolve the clip's house once — used for both the lens gate and its edge
+        cbrand = None
+        if clip.brand:
+            cbrand = (Brand.objects.filter(name__iexact=clip.brand).first()
+                      or Brand.objects.filter(name__icontains=clip.brand).first())
+        if lens and not _clip_matches_lens(clip, lens, cbrand):
+            continue  # under a lens, only clips that fit the slice
         x, y = _seed_xy("note", i)
         add({"id": nid, "type": _KIND_TYPE.get(clip.kind, "note"),
              "label": clip.title or clip.piece_name or (clip.text[:40] if clip.text else "Clipping"),
@@ -276,12 +411,9 @@ def build_graph(focus: str | None = None) -> dict:
         if clip.board:
             clip_pins.append((nid, board_id(clip.board)))
         # link to its house, if the brand names one we know
-        if clip.brand:
-            b = (Brand.objects.filter(name__iexact=clip.brand).first()
-                 or Brand.objects.filter(name__icontains=clip.brand).first())
-            if b:
-                add_house(b, nodes, node_ids, saved, follow_date)
-                clip_house_edges.append((nid, house_id(b)))
+        if cbrand:
+            add_house(cbrand, nodes, node_ids, saved, follow_date)
+            clip_house_edges.append((nid, house_id(cbrand)))
         # link to the kindred traits it shares
         for t in (clip.tags or []):
             tnorm = str(t).replace("-", " ").lower().strip()
@@ -372,14 +504,16 @@ def build_graph(focus: str | None = None) -> dict:
 
     from library.models import DiaryEntry, Follow, Pin
 
-    # ── the index — the FULL catalogue. The left rail lists everything (all houses,
-    # all pieces, every derived pattern); the desk above is just a readable subset.
+    # ── the index — the left rail. With no lens it's the FULL catalogue; under a lens it
+    # narrows to the slice (pieces/patterns already do via the filtered corpus). List view
+    # stays the unfiltered browse-all.
     followed_keys = set(Follow.objects.values_list("brand__key", flat=True))
     index_houses = sorted(
         ({"id": house_id(b), "label": b.name, "sub": b.city or "",
           "followed": b.key in followed_keys, "suggested": not b.in_library,
           "onDesk": house_id(b) in node_ids}
-         for b in Brand.objects.all()),
+         for b in Brand.objects.all()
+         if not lens or house_id(b) in node_ids or _house_matches_lens(b, lens)),
         key=lambda h: (not h["followed"], h["label"]),
     )
     index_pieces = sorted(
@@ -389,12 +523,20 @@ def build_graph(focus: str | None = None) -> dict:
         key=lambda p: (not p["pinned"], p["label"]),
     )
     index_patterns = [{"id": pattern_id(p.tag), "label": p.label, "weight": p.weight} for p in patterns]
-    index_boards = [{"id": board_id(b), "label": b.name, "count": b.pins.count()} for b in boards]
-    index_notes = [{"id": note_id(e), "label": (e.note[:44] or str(e.date))} for e in DiaryEntry.objects.all()]
+    index_boards = [{"id": board_id(b), "label": b.name, "count": b.pins.count()}
+                    for b in boards if not lens or _board_matches_lens(b, lens, lens_ids, lens_brands)]
+    index_notes = [] if lens else [{"id": note_id(e), "label": (e.note[:44] or str(e.date))} for e in DiaryEntry.objects.all()]
 
-    # fold captured clips into the right index groups (they're on the desk already)
-    for clip in clips:
-        item = {"id": f"clip:{clip.id}", "label": clip.title or clip.text[:40] or "Clipping", "onDesk": True}
+    # fold captured clips into the index; under a lens, only clips that fit the slice
+    on_desk_clips = {f"clip:{c.id}" for c in clips}
+    for clip in all_clips:
+        if lens:
+            cb = ((Brand.objects.filter(name__iexact=clip.brand).first()
+                   or Brand.objects.filter(name__icontains=clip.brand).first()) if clip.brand else None)
+            if not _clip_matches_lens(clip, lens, cb):
+                continue
+        cid = f"clip:{clip.id}"
+        item = {"id": cid, "label": clip.title or clip.text[:40] or "Clipping", "onDesk": cid in on_desk_clips}
         if clip.kind == "house":
             index_houses.insert(0, {**item, "followed": False, "suggested": False, "sub": "clipped"})
         elif clip.kind == "piece":
@@ -454,6 +596,34 @@ def build_graph_list() -> dict:
               "sub": "clipped", "image": c.image_url or None}
              for c in ClipModel.objects.order_by("-created_at")]
     return {"houses": houses, "pieces": pieces, "kindred": kindred, "boards": boards, "archived": archived, "clips": clips}
+
+
+# ── the lens picker's options — data-driven so it only offers slices that exist ──
+def build_graph_lenses() -> dict:
+    from django.utils import timezone
+
+    pieces, _b, _f = _load_corpus()
+    regions, tiers, aesthetics = Counter(), Counter(), Counter()
+    pinned = recent = 0
+    cutoff = timezone.now() - timezone.timedelta(days=30)
+    for pc in pieces:
+        for t in [t.lower() for t in (pc.brand.tags or [])]:
+            (regions if t in REGION_TAGS else aesthetics)[t] += 1
+        if pc.brand.tier:
+            tiers[pc.brand.tier] += 1
+        if pc.pinned:
+            pinned += 1
+        if pc.date and pc.date >= cutoff:
+            recent += 1
+    rows = lambda c, cap=None: [{"value": v, "label": v.title(), "count": n} for v, n in c.most_common(cap)]
+    return {
+        "region": rows(regions),
+        "tier": [{"value": t, "label": TIER_LABEL.get(t, t.title()), "count": n} for t, n in tiers.most_common()],
+        "aesthetic": rows(aesthetics, 12),
+        "kindred": [{"value": p.tag, "label": p.label, "count": p.weight} for p in derive_patterns(pieces)[:12]],
+        "state": [{"value": "pinned", "label": "Pinned", "count": pinned},
+                  {"value": "recent", "label": "This month", "count": recent}],
+    }
 
 
 # ── small helpers used above ──
