@@ -33,18 +33,6 @@ export function useGraph(focus?: string | null, lens?: Record<string, string[]>,
   })
 }
 
-// Warm the cache for a related graph variant (e.g. the "only shared" view while you're in compare) so
-// toggling to it is INSTANT — no ~100ms refetch pause that makes the transition feel choppy.
-export function usePrefetchGraph() {
-  const qc = useQueryClient()
-  return (focus?: string | null, lens?: Record<string, string[]>, depth?: number, sharedOnly?: boolean) =>
-    qc.prefetchQuery({
-      queryKey: graphKeys.graph(focus, lens, depth, sharedOnly),
-      queryFn: () => fetchGraph(focus, lens, depth, sharedOnly),
-      staleTime: 30_000,
-    })
-}
-
 // The lens picker's options — available facet slices with counts.
 export function useGraphLenses() {
   return useQuery<GraphLenses>({

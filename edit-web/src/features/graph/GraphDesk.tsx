@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useGraph, usePrefetchGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses, useBoardEdge } from './api'
+import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses, useBoardEdge } from './api'
 import type { GraphNode, GraphEdge, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem, GraphLenses } from './types'
 
 const STAGE_W = 2400
@@ -8,7 +8,7 @@ const STAGE_H = 1600
 // Cards animate their POSITION via a GPU-composited transform (not left/top, which forces a layout
 // recalc every frame and stutters when many cards move at once). left/top hold the final spot; the
 // transform carries the from→to delta and eases to 0.
-const NODE_TRANSITION = 'transform .7s cubic-bezier(.22,.7,.2,1)'
+const NODE_TRANSITION = 'transform .7s cubic-bezier(.22,.7,.2,1), opacity .4s ease'
 // a card's TARGET position (style.left/top is set instantly) vs offsetLeft (animates mid-flight)
 const styleX = (el: HTMLElement) => { const v = parseFloat(el.style.left); return isNaN(v) ? el.offsetLeft : v }
 const styleY = (el: HTMLElement) => { const v = parseFloat(el.style.top); return isNaN(v) ? el.offsetTop : v }
@@ -69,13 +69,18 @@ export default function GraphDesk() {
   const comparing = compareMode && focusIds.length >= 2   // ≥2 → the Venn renders
   // one pending compare pick keeps the full map (focusKey null) so the next pick is easy
   const focusKey = comparing ? focusIds.join(',') : (!compareMode && focusIds.length === 1 ? focusIds[0] : null)
-  const { data: graph, isLoading, isPlaceholderData } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, comparing && sharedOnly)
-  // warm the "only shared" (and back-to-compare) variants while comparing, so the toggle is instant
-  // — the refetch pause was what made that one transition feel choppy vs the client-side animations.
-  const prefetchGraph = usePrefetchGraph()
-  useEffect(() => {
-    if (comparing) prefetchGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, !sharedOnly)
-  }, [comparing, focusKey, sharedOnly, focusDepth, hasLens, activeLens, prefetchGraph])
+  // NB: "only shared" is NOT a separate fetch/layout — that made it feel like a prefab view sliding
+  // in from a different coordinate space. Instead we always load the full COMPARE data and, when
+  // sharedOnly is on, fade the exclusive cards out IN PLACE (the anchors + shared core stay put).
+  const { data: graph, isLoading, isPlaceholderData } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth)
+  // ids to fade out in only-shared: cards reached by fewer than all anchors (not anchors themselves)
+  const nAnchors = focusIds.length
+  const hiddenIds = useMemo(() => {
+    const s = new Set<string>()
+    if (comparing && sharedOnly && graph) for (const n of graph.nodes) if (!n.anchor && (n.shared ?? 0) < nAnchors) s.add(n.id)
+    return s
+  }, [comparing, sharedOnly, graph, nAnchors])
+  const hiddenRef = useRef(hiddenIds); hiddenRef.current = hiddenIds
   // multi-focus is a fresh, transient view: it uses the server's Venn coords and neither reads
   // nor writes the saved arrangement, so poles can't snap back to old main-desk positions.
   const multiRef = useRef(false)
@@ -158,7 +163,7 @@ export default function GraphDesk() {
   displayNodesRef.current = displayNodes
   const foldedRef = useRef(folded)   // so applyPositions can tell it's a re-packed (folded) layout
   foldedRef.current = folded
-  const visEdge = (e: GraphEdge) => !foldedIds.has(e.from) && !foldedIds.has(e.to)
+  const visEdge = (e: GraphEdge) => !foldedIds.has(e.from) && !foldedIds.has(e.to) && !hiddenIds.has(e.from) && !hiddenIds.has(e.to)
   // every foldable group present in the current view (so clippings/boards can be tucked too)
   const foldableGroups = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -169,7 +174,13 @@ export default function GraphDesk() {
       .map(([key, count]) => ({ key, count }))
   }, [deskNodes])
   const toggleFold = (k: string) => setFolded((f) => { const s = new Set(f); s.has(k) ? s.delete(k) : s.add(k); return s })
-  const shownEdges = (inBoard && !showKinship ? deskEdges.filter((e) => e.dim === 'authored') : deskEdges).filter(visEdge)
+  // in only-shared the exclusive pieces fade, so shared *aesthetics* would lose their (piece-based)
+  // lines — wire them straight to the anchors instead so the intersection stays connected.
+  const sharedEdges: GraphEdge[] = (comparing && sharedOnly && graph)
+    ? graph.nodes.filter((n) => n.type === 'pattern' && !n.anchor && (n.shared ?? 0) >= nAnchors)
+        .flatMap((p) => focusIds.map((a) => ({ from: a, to: p.id, type: 'exhibits', derived: true, dim: 'pattern' as const, dashed: true })))
+    : []
+  const shownEdges = [...(inBoard && !showKinship ? deskEdges.filter((e) => e.dim === 'authored') : deskEdges).filter(visEdge), ...sharedEdges]
   const boardPos = useRef<Record<string, [number, number]>>({}) // per-board drag overrides
   const boardItemMutRef = useRef(boardItemMut)                    // latest, for the drag effect
   boardItemMutRef.current = boardItemMut
@@ -314,8 +325,8 @@ export default function GraphDesk() {
     // frame the actual node bounding box, not the whole canvas — the seed layout's
     // extent varies with how many nodes the desk holds.
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-    Object.values(nodeRefs.current).forEach((n) => {
-      if (!n || n.style.display === 'none') return
+    Object.entries(nodeRefs.current).forEach(([id, n]) => {
+      if (!n || n.style.display === 'none' || hiddenRef.current.has(id)) return   // fading-out cards don't frame
       // measure the TARGET position (style.left), not offsetLeft — the latter reports the
       // mid-flight value while a card animates, which would frame a moving target.
       const nx = styleX(n), ny = styleY(n)
@@ -405,7 +416,7 @@ export default function GraphDesk() {
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
         let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity
         Object.entries(nodeRefs.current).forEach(([id, el]) => {
-          if (!el) return
+          if (!el || hiddenRef.current.has(id)) return   // fading-out cards don't count toward the frame
           const nx = styleX(el), ny = styleY(el)
           x0 = Math.min(x0, nx); y0 = Math.min(y0, ny)
           x1 = Math.max(x1, nx + el.offsetWidth); y1 = Math.max(y1, ny + el.offsetHeight)
@@ -1020,6 +1031,7 @@ export default function GraphDesk() {
                     onCompare={!inBoard && (n.type === 'house' || n.type === 'pattern') ? () => toggleCompare(n.id) : undefined}
                     inCompare={compareMode && focusIds.includes(n.id)}
                     isNew={!inBoard && n.type === 'house' && !met.has(n.id)}
+                    hidden={hiddenIds.has(n.id)}
                   />
                 ))}
               </div>
@@ -1294,7 +1306,7 @@ export default function GraphDesk() {
 }
 
 // ── node card ──
-function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable, onFocus, onCompare, inCompare, isNew }: {
+function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen, onRemove, connectable, onFocus, onCompare, inCompare, isNew, hidden }: {
   node: GraphNode
   followed: boolean
   pinned: boolean
@@ -1308,6 +1320,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   onCompare?: () => void // house cards: toggle this house in the comparison set
   inCompare?: boolean    // house cards: currently an anchor in the comparison set
   isNew?: boolean        // house cards: you haven't opened this house yet ("new to you")
+  hidden?: boolean       // only-shared: exclusive card fading out in place
 }) {
   const [hover, setHover] = useState(false)
   const isPattern = node.type === 'pattern'
@@ -1333,6 +1346,7 @@ function NodeCard({ node, followed, pinned, count, highlighted, innerRef, onOpen
   // anchors read as heavier poles. Both win over the hover highlight.
   if (node.shared && !node.anchor) Object.assign(base, { outline: `1.5px solid ${ACCENT}`, outlineOffset: 3, boxShadow: '3px 3px 0 rgba(143,67,49,.2)' })
   if (node.anchor || inCompare) Object.assign(base, { outline: `2px solid ${ACCENT}`, outlineOffset: 4, boxShadow: '4px 4px 0 rgba(143,67,49,.3)' })  // pole (Venn) or a pending compare pick
+  if (hidden) Object.assign(base, { opacity: 0, pointerEvents: 'none' })   // only-shared: fade the exclusive out in place
 
   const showPinmark = pinned && !isPattern && !isBoard
 
