@@ -125,14 +125,33 @@ export default function GraphDesk() {
     for (const k of folded) {
       const members = deskNodes.filter((n) => clusterKey(n.type) === k)
       if (!members.length) continue  // nothing of this type in the current view
-      const cx = members.reduce((s, m) => s + m.x, 0) / members.length
-      const cy = members.reduce((s, m) => s + m.y, 0) / members.length
-      hubs.push({ id: `cluster:${k}`, type: 'cluster', label: `${members.length} ${members.length === 1 ? clusterOne[k] : clusterLabel[k]}`, count: members.length, tags: [], x: cx, y: cy })
+      hubs.push({ id: `cluster:${k}`, type: 'cluster', label: `${members.length} ${members.length === 1 ? clusterOne[k] : clusterLabel[k]}`, count: members.length, tags: [], x: 0, y: 0 })
     }
-    return [...kept, ...hubs]
+    // with something folded, RE-ORIENT: re-pack the remaining cards + hubs into compact type-bands
+    // so the freed space closes up instead of leaving a hole. (The transform-FLIP animates the move.)
+    const all = [...kept, ...hubs]
+    const order = ['house', 'kindred', 'piece', 'board', 'clip', 'other']
+    const bandOf = (n: GraphNode) => n.type === 'cluster' ? n.id.slice('cluster:'.length) : (clusterKey(n.type) || 'other')
+    const bands: Record<string, GraphNode[]> = {}
+    all.forEach((n) => { const b = bandOf(n); (bands[order.includes(b) ? b : 'other'] ||= []).push(n) })
+    const CW = 264, CX = 1000, GAPY = 64
+    const pos: Record<string, [number, number]> = {}
+    let y = 120
+    order.forEach((key) => {
+      const arr = bands[key]; if (!arr || !arr.length) return
+      const cols = Math.max(1, Math.min(arr.length, 6))
+      const rows = Math.ceil(arr.length / cols)
+      const ch = arr.some((n) => n.type === 'piece' || n.type === 'clipping') ? 300 : 150   // tall band for image cards
+      const x0 = CX - (cols * CW) / 2 + CW / 2
+      arr.forEach((n, i) => { pos[n.id] = [x0 + (i % cols) * CW, y + Math.floor(i / cols) * ch] })
+      y += rows * ch + GAPY
+    })
+    return all.map((n) => pos[n.id] ? { ...n, x: pos[n.id][0], y: pos[n.id][1] } : n)
   }, [deskNodes, folded])
   const displayNodesRef = useRef(displayNodes)
   displayNodesRef.current = displayNodes
+  const foldedRef = useRef(folded)   // so applyPositions can tell it's a re-packed (folded) layout
+  foldedRef.current = folded
   const visEdge = (e: GraphEdge) => !foldedIds.has(e.from) && !foldedIds.has(e.to)
   // every foldable group present in the current view (so clippings/boards can be tucked too)
   const foldableGroups = useMemo(() => {
@@ -245,7 +264,9 @@ export default function GraphDesk() {
         }
       })
     } else {
-      displayNodesRef.current.forEach((n) => { if (nodeRefs.current[n.id]) targets[n.id] = (!multiRef.current && posOverride.current[n.id]) || [n.x, n.y] })
+      // when folded, [n.x, n.y] is the re-packed position — ignore drag overrides so the space closes up
+      const packed = foldedRef.current.size > 0
+      displayNodesRef.current.forEach((n) => { if (nodeRefs.current[n.id]) targets[n.id] = (!packed && !multiRef.current && posOverride.current[n.id]) || [n.x, n.y] })
     }
 
     // 2) FLIP every card that moved so it glides — this is what animates *any* graph change (fold,
