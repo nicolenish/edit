@@ -13,22 +13,36 @@ export const graphKeys = {
   node: (id: string) => ['graph-node', id] as const,
 }
 
+async function fetchGraph(focus?: string | null, lens?: Record<string, string[]>, depth?: number, sharedOnly?: boolean): Promise<GraphResponse> {
+  if (USE_MOCK) return MOCK_GRAPH
+  // each facet's picks go over as one comma-separated value
+  const lensParams = Object.fromEntries(Object.entries(lens || {}).filter(([, v]) => v.length).map(([k, v]) => [k, v.join(',')]))
+  const { data } = await api.get<GraphResponse>('/graph/', {
+    params: { ...(focus ? { focus, ...(depth && depth > 1 ? { depth } : {}) } : {}), ...(sharedOnly ? { shared: 1 } : {}), ...lensParams },
+  })
+  return data
+}
+
 export function useGraph(focus?: string | null, lens?: Record<string, string[]>, depth?: number, sharedOnly?: boolean) {
   return useQuery<GraphResponse>({
     // keep the previous desk on screen while a lens/focus change loads — otherwise the whole
     // view (and any open lens picker) would unmount to the loading state on every pick
     placeholderData: keepPreviousData,
     queryKey: graphKeys.graph(focus, lens, depth, sharedOnly),
-    queryFn: async () => {
-      if (USE_MOCK) return MOCK_GRAPH
-      // each facet's picks go over as one comma-separated value
-      const lensParams = Object.fromEntries(Object.entries(lens || {}).filter(([, v]) => v.length).map(([k, v]) => [k, v.join(',')]))
-      const { data } = await api.get<GraphResponse>('/graph/', {
-        params: { ...(focus ? { focus, ...(depth && depth > 1 ? { depth } : {}) } : {}), ...(sharedOnly ? { shared: 1 } : {}), ...lensParams },
-      })
-      return data
-    },
+    queryFn: () => fetchGraph(focus, lens, depth, sharedOnly),
   })
+}
+
+// Warm the cache for a related graph variant (e.g. the "only shared" view while you're in compare) so
+// toggling to it is INSTANT — no ~100ms refetch pause that makes the transition feel choppy.
+export function usePrefetchGraph() {
+  const qc = useQueryClient()
+  return (focus?: string | null, lens?: Record<string, string[]>, depth?: number, sharedOnly?: boolean) =>
+    qc.prefetchQuery({
+      queryKey: graphKeys.graph(focus, lens, depth, sharedOnly),
+      queryFn: () => fetchGraph(focus, lens, depth, sharedOnly),
+      staleTime: 30_000,
+    })
 }
 
 // The lens picker's options — available facet slices with counts.

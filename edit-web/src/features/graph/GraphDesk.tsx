@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses, useBoardEdge } from './api'
+import { useGraph, usePrefetchGraph, useGraphNode, savePositions, usePinNode, useFollowNode, useHouseStudy, useCreateBoard, useCapture, useUpdateClip, useDeleteClip, useBoardGraph, useBoardItem, saveBoardPositions, useUpdateBoard, useGraphList, useDeleteBoard, useUploadImage, useAddBoardLocal, useGraphLenses, useBoardEdge } from './api'
 import type { GraphNode, GraphEdge, GraphNodeType, HouseStudy, IndexItem, ClipEditable, ListItem, GraphLenses } from './types'
 
 const STAGE_W = 2400
@@ -70,6 +70,12 @@ export default function GraphDesk() {
   // one pending compare pick keeps the full map (focusKey null) so the next pick is easy
   const focusKey = comparing ? focusIds.join(',') : (!compareMode && focusIds.length === 1 ? focusIds[0] : null)
   const { data: graph, isLoading, isPlaceholderData } = useGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, comparing && sharedOnly)
+  // warm the "only shared" (and back-to-compare) variants while comparing, so the toggle is instant
+  // — the refetch pause was what made that one transition feel choppy vs the client-side animations.
+  const prefetchGraph = usePrefetchGraph()
+  useEffect(() => {
+    if (comparing) prefetchGraph(focusKey, hasLens ? activeLens : undefined, focusDepth, !sharedOnly)
+  }, [comparing, focusKey, sharedOnly, focusDepth, hasLens, activeLens, prefetchGraph])
   // multi-focus is a fresh, transient view: it uses the server's Venn coords and neither reads
   // nor writes the saved arrangement, so poles can't snap back to old main-desk positions.
   const multiRef = useRef(false)
