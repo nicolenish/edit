@@ -5,10 +5,18 @@ import type { GraphNode, GraphEdge, GraphNodeType, HouseStudy, IndexItem, ClipEd
 
 const STAGE_W = 2400
 const STAGE_H = 1600
-const NODE_TRANSITION = 'left .75s cubic-bezier(.22,.7,.2,1), top .75s cubic-bezier(.22,.7,.2,1)'
+// Cards animate their POSITION via a GPU-composited transform (not left/top, which forces a layout
+// recalc every frame and stutters when many cards move at once). left/top hold the final spot; the
+// transform carries the from→to delta and eases to 0.
+const NODE_TRANSITION = 'transform .7s cubic-bezier(.22,.7,.2,1)'
 // a card's TARGET position (style.left/top is set instantly) vs offsetLeft (animates mid-flight)
 const styleX = (el: HTMLElement) => { const v = parseFloat(el.style.left); return isNaN(v) ? el.offsetLeft : v }
 const styleY = (el: HTMLElement) => { const v = parseFloat(el.style.top); return isNaN(v) ? el.offsetTop : v }
+// a card's CURRENT visual centre in stage coords = its final spot + the live transform offset
+const nodeCentre = (el: HTMLElement): [number, number] => {
+  const m = new DOMMatrixReadOnly(getComputedStyle(el).transform)
+  return [el.offsetLeft + el.offsetWidth / 2 + m.e, el.offsetTop + el.offsetHeight / 2 + m.f]
+}
 const KEY = 'nishi.desk.v1'
 const MET_KEY = 'nishi.met.v1'   // houses you've opened/focused — persisted client-side
 const STRIPE = 'repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px)'
@@ -183,22 +191,26 @@ export default function GraphDesk() {
   const updateEdges = useCallback(() => {
     const svg = svgRef.current
     if (!svg) return
+    // cache each node's live centre once per frame (includes the animating transform, so lines glue
+    // to the cards as they glide)
+    const cache = new Map<string, [number, number] | null>()
+    const centre = (id: string) => {
+      if (cache.has(id)) return cache.get(id)!
+      const el = nodeRefs.current[id]
+      const c = el ? nodeCentre(el) : null
+      cache.set(id, c); return c
+    }
     svg.querySelectorAll<SVGLineElement>('line[data-from]').forEach((l) => {
-      const a = nodeRefs.current[l.dataset.from!]
-      const b = nodeRefs.current[l.dataset.to!]
+      const a = centre(l.dataset.from!), b = centre(l.dataset.to!)
       if (!a || !b) return
-      l.setAttribute('x1', String(a.offsetLeft + a.offsetWidth / 2))
-      l.setAttribute('y1', String(a.offsetTop + a.offsetHeight / 2))
-      l.setAttribute('x2', String(b.offsetLeft + b.offsetWidth / 2))
-      l.setAttribute('y2', String(b.offsetTop + b.offsetHeight / 2))
+      l.setAttribute('x1', String(a[0])); l.setAttribute('y1', String(a[1]))
+      l.setAttribute('x2', String(b[0])); l.setAttribute('y2', String(b[1]))
     })
     // authored-edge labels ride the midpoint of their line
     svg.querySelectorAll<SVGTextElement>('text[data-from]').forEach((t) => {
-      const a = nodeRefs.current[t.dataset.from!]
-      const b = nodeRefs.current[t.dataset.to!]
+      const a = centre(t.dataset.from!), b = centre(t.dataset.to!)
       if (!a || !b) return
-      t.setAttribute('x', String((a.offsetLeft + a.offsetWidth / 2 + b.offsetLeft + b.offsetWidth / 2) / 2))
-      t.setAttribute('y', String((a.offsetTop + a.offsetHeight / 2 + b.offsetTop + b.offsetHeight / 2) / 2))
+      t.setAttribute('x', String((a[0] + b[0]) / 2)); t.setAttribute('y', String((a[1] + b[1]) / 2))
     })
   }, [])
 
@@ -249,18 +261,18 @@ export default function GraphDesk() {
     const anim: HTMLDivElement[] = []
     entries.forEach(({ p, el }) => {
       const had = !!el.style.left
-      if (!anyPlaced) { el.style.left = `${p[0]}px`; el.style.top = `${p[1]}px`; return }
       const fromX = had ? styleX(el) : p[0] + (cx - el.offsetWidth / 2 - p[0]) * 0.62
       const fromY = had ? styleY(el) : p[1] + (cy - el.offsetHeight / 2 - p[1]) * 0.62
-      if (Math.abs(fromX - p[0]) > 1 || Math.abs(fromY - p[1]) > 1) {
-        el.style.transition = 'none'; el.style.left = `${fromX}px`; el.style.top = `${fromY}px`
-        el.dataset.tx = String(p[0]); el.dataset.ty = String(p[1]); anim.push(el)
-      } else if (!had) {
-        el.style.left = `${p[0]}px`; el.style.top = `${p[1]}px`
+      el.style.left = `${p[0]}px`; el.style.top = `${p[1]}px`   // final spot always
+      if (!anyPlaced) { el.style.transition = 'none'; el.style.transform = 'translate(0px,0px)'; return }
+      const dx = fromX - p[0], dy = fromY - p[1]
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        el.style.transition = 'none'; el.style.transform = `translate(${dx}px, ${dy}px)`   // sit at 'from'
+        anim.push(el)
       }
     })
     if (anim.length && panRef.current) void panRef.current.offsetWidth   // one reflow to lock the 'from'
-    anim.forEach((el) => { el.style.transition = NODE_TRANSITION; el.style.left = `${el.dataset.tx}px`; el.style.top = `${el.dataset.ty}px`; delete el.dataset.tx; delete el.dataset.ty })
+    anim.forEach((el) => { el.style.transition = NODE_TRANSITION; el.style.transform = 'translate(0px,0px)' })   // ease the delta to zero (GPU)
 
     // keep the edges glued to the cards for the length of the glide
     let t = 0
