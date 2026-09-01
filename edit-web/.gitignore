@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# static demo build for the portfolio embed
+dist-demo
+public/__demo__

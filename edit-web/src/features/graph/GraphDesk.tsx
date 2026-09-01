@@ -758,7 +758,7 @@ export default function GraphDesk() {
       {/* ── status rail ── */}
       <header style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.4fr 1fr auto', gap: 24, alignItems: 'baseline', padding: '12px 22px', borderBottom: `1px solid ${INK}`, ...railType }}>
         <Link to="/" style={{ color: INK }}>
-          <div>Nishi 西</div>
+          <div>ÉDIT</div>
           <div style={{ color: '#7d776b' }}>Taste graph</div>
         </Link>
         <div>
