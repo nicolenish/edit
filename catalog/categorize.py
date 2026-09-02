@@ -1,5 +1,5 @@
-"""Occasion + tier categorization — the productionized version of the prototype's
-`pull.py` heuristics. Brand-level overrides win over keyword matching."""
+"""Occasion + tier categorization — the productionized version of the original
+one-off script's heuristics. Brand-level overrides win over keyword matching."""
 
 # brand-key overrides (match the prototype's ATHLEISURE / JEWELRY sets)
 ATHLEISURE_KEYS = {"hermanoskoumori", "bandit", "currentlyrunning"}

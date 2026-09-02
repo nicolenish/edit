@@ -1,7 +1,7 @@
 """Shopify ingestion — detect a store, pull its /products.json, categorize, upsert.
 
-This is the productionized version of the prototype's pull.py: the same
-`/products.json` trick, made resilient (retries + page-size fallback)."""
+This is the productionized version of the original one-off pull script: the
+same `/products.json` trick, made resilient (retries + page-size fallback)."""
 import re
 import ssl
 import json

@@ -15,7 +15,7 @@ library/         Follow, Board, Pin, DiaryEntry, Connection (your personal data)
 seed/seed.json   curated starter data (34 shoppable brands, 238 products, 50 editorial houses)
 edit-web/        React + Vite + TS frontend
 prototype/       the design prototype this was built from (edit.html) — reference only
-*.py, *.json     the research/ingestion scripts used to build the seed (pull.py, resolve*.py …)
+scripts/         one-off tooling that built the seed data and the prototypes
 ```
 
 ## Run it
