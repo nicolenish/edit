@@ -17,8 +17,25 @@ const nodeCentre = (el: HTMLElement): [number, number] => {
   const m = new DOMMatrixReadOnly(getComputedStyle(el).transform)
   return [el.offsetLeft + el.offsetWidth / 2 + m.e, el.offsetTop + el.offsetHeight / 2 + m.f]
 }
-const KEY = 'nishi.desk.v1'
-const MET_KEY = 'nishi.met.v1'   // houses you've opened/focused — persisted client-side
+// Persisted client-side state. The app was called Nishi before it was ÉDIT, and
+// a rename should not cost anyone the arrangement they built, so reads fall back
+// to the old key and the next write moves it across.
+const KEY = 'edit.desk.v1'
+const MET_KEY = 'edit.met.v1'    // houses you've opened/focused — persisted client-side
+const LEGACY: Record<string, string> = {
+  [KEY]: 'nishi.desk.v1',
+  [MET_KEY]: 'nishi.met.v1',
+  'edit.savedLenses': 'nishi.savedLenses',
+}
+
+/** localStorage.getItem, falling back to the pre-rename key. */
+const readLocal = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key) ?? (LEGACY[key] ? localStorage.getItem(LEGACY[key]) : null)
+  } catch {
+    return null   // private mode, blocked storage — the desk just starts empty
+  }
+}
 const STRIPE = 'repeating-linear-gradient(45deg, #efece5 0 8px, #f7f5f0 8px 16px)'
 const ACCENT = '#8f4331' // terracotta — UI accent (buttons, pins)
 const INK = '#141310'
@@ -40,7 +57,7 @@ interface Persisted {
 
 function loadPersisted(): Persisted {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || 'null') || {}
+    return JSON.parse(readLocal(KEY) || 'null') || {}
   } catch {
     return {}
   }
@@ -54,7 +71,7 @@ export default function GraphDesk() {
   const hasLens = Object.keys(activeLens).length > 0
   // houses you've actually opened/focused/compared — so unmet ones can be marked "new to you"
   // and you can wander the graph toward houses you haven't met yet (docs: discovery via kindred).
-  const [met, setMet] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem(MET_KEY) || '[]')) } catch { return new Set() } })
+  const [met, setMet] = useState<Set<string>>(() => { try { return new Set(JSON.parse(readLocal(MET_KEY) || '[]')) } catch { return new Set() } })
   const markMet = useCallback((id: string) => {
     if (!id?.startsWith('house:')) return
     setMet((prev) => { if (prev.has(id)) return prev; const nx = new Set(prev); nx.add(id); localStorage.setItem(MET_KEY, JSON.stringify([...nx])); return nx })
@@ -1005,7 +1022,7 @@ export default function GraphDesk() {
                     <>
                       <DayMark left={180} top={60} width={280}>{fmt(min)} — earliest</DayMark>
                       <DayMark left={STAGE_W - 560} top={60} width={280}>{fmt(max)} — latest</DayMark>
-                      <div style={{ position: 'absolute', left: 180, top: 1120, width: STAGE_W - 480, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: '#7d776b', borderTop: `1px solid ${INK}`, paddingTop: 6 }}>No date — Nishi noticed, and yours</div>
+                      <div style={{ position: 'absolute', left: 180, top: 1120, width: STAGE_W - 480, fontFamily: 'Newsreader, serif', fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: '#7d776b', borderTop: `1px solid ${INK}`, paddingTop: 6 }}>No date — ÉDIT noticed, and yours</div>
                     </>
                   )
                 })()}
@@ -1483,7 +1500,7 @@ function ClipEditor({ clip, boards, onClose }: { clip: ClipEditable; boards: Ind
   return (
     <div style={{ borderTop: `1px solid ${INK}`, marginTop: 20, paddingTop: 4 }}>
       <div style={{ fontFamily: 'Newsreader, serif', fontStyle: 'italic', fontSize: 21, padding: '14px 0 0' }}>Edit clip</div>
-      <label style={label}>Type <span style={{ textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>— Nishi's guess, change if wrong</span></label>
+      <label style={label}>Type <span style={{ textTransform: 'none', letterSpacing: 0, color: '#a09a8d' }}>— ÉDIT's guess, change if wrong</span></label>
       <select value={kind} onChange={(e) => setKind(e.target.value)} style={field}>
         <option value="note">Note — a thought</option>
         <option value="clip">Clipping — image / link</option>
@@ -1703,11 +1720,11 @@ function EdgeEditor({ initial, onSave, onDelete, onClose }: { initial: string; o
 }
 
 // the lens picker — filter the desk to a facet slice; save/apply named views (localStorage).
-const SAVED_LENS_KEY = 'nishi.savedLenses'
+const SAVED_LENS_KEY = 'edit.savedLenses'
 type SavedLens = { name: string; spec: Record<string, string[]> }
 function loadSavedLenses(): SavedLens[] {
   try {
-    return (JSON.parse(localStorage.getItem(SAVED_LENS_KEY) || '[]') as SavedLens[])
+    return (JSON.parse(readLocal(SAVED_LENS_KEY) || '[]') as SavedLens[])
       // migrate any old single-value specs to arrays
       .map((s) => ({ ...s, spec: Object.fromEntries(Object.entries(s.spec).map(([k, v]) => [k, Array.isArray(v) ? v : [v]])) }))
   } catch { return [] }

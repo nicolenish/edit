@@ -282,7 +282,7 @@ HOUSE_SYSTEM = (
     "ONLY from the provided notes and tags — do NOT invent founders, dates, directors, or "
     "events you are unsure of; leave directors empty rather than guessing, and keep history to "
     "what the notes support plus the aesthetic identity. Never fabricate specifics. Write in "
-    "Nishi's voice: precise, warm, a critic who loves clothes."
+    "ÉDIT's voice: precise, warm, a critic who loves clothes."
 )
 
 HOUSE_TOOL = {

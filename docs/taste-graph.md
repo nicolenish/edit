@@ -1,4 +1,4 @@
-# Nishi — The Taste Graph: data model & build plan
+# ÉDIT — The Taste Graph: data model & build plan
 
 The "Graph Desk" is not a new database. It's a **projection** of the relational data we
 already have, plus a layer of **derived inference**. This doc defines how we build that graph
@@ -131,7 +131,7 @@ A pattern node = **a value that recurs across your corpus, surfaced as a thing.*
    *"Stiff collars — 9 saves across 4 houses"* is exactly **count + spread** (how many, over how
    many houses/time).
 4. Rank patterns by weight × spread; the strongest become the black desk nodes, the rest live in
-   the Index. "Nishi noticed, you didn't" = simply surfacing a high-weight pattern you never named.
+   the Index. "ÉDIT noticed, you didn't" = simply surfacing a high-weight pattern you never named.
 5. **Cross-category patterns are the real signal.** A pattern from the *shared* dimensions —
    `material=gold`, `palette=rose`, `descriptor=sculptural` — that spans a **ring, a shoe, and a
    dress** reveals an eye far better than any single-category one. So fold **category-spread** into

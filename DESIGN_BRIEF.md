@@ -1,11 +1,11 @@
-# Nishi 西 — Design Brief v3: a second brain for style
+# ÉDIT — Design Brief v3: a second brain for style
 
 Paste the **PROMPT** block into Claude to iterate on the look. Everything under it is
 reference. Read the ⚠️ note first if you're designing inside a Claude Artifact.
 
 ---
 
-## What Nishi is
+## What ÉDIT is
 
 A **second brain for style.** A personal, ever-growing web of the houses, pieces, looks,
 colours and ideas that make up your eye. Not a magazine you read cover to cover — a living
@@ -20,7 +20,7 @@ later; it isn't the point. The point is **taste, memory, discovery, and play**.
 
 ## The core shift: from *magazine* → *second brain*
 
-This is the big change from v1/v2. The old design framed Nishi as a beautifully-structured
+This is the big change from v1/v2. The old design framed ÉDIT as a beautifully-structured
 **publication** — an almanac with a numbered index, "house of the week," dispatches, sections
 read in order. But a second brain isn't editorial and top-down; it's **associative, personal,
 and emergent**. Change the bones:
@@ -36,7 +36,7 @@ and emergent**. Change the bones:
 - **It reflects you back — and surprises you.** Resurfacing (*"you saved this in March"*),
   patterns (*"you keep returning to slip silhouettes"*), and connections you didn't make
   yourself (Discover, the taste graph).
-- **Your structure, not a prescribed one.** Boards, tags, collections are *yours*. Nishi
+- **Your structure, not a prescribed one.** Boards, tags, collections are *yours*. ÉDIT
   organises around your eye, not an editor's table of contents.
 
 Keep the elegance and the whimsy — they're the *feel*. Change the **structure** from
@@ -71,7 +71,7 @@ Spyplane (the *voice*) · commonplace books. (Moods, not templates.)
 5. **Wit in the copy.** Warm, first-person, a touch cheeky — a smart, funny friend, not a press
    release. *"your eye, so far," "broaden the eye," "clipped today," "not for me."*
 6. **Texture.** A faint warm-paper grain and a **dot-grid** (planner vibe) on board/diary surfaces.
-   One recurring **motif** — a scribbled star, or an **eye** ("your eye") — as Nishi's mark.
+   One recurring **motif** — a scribbled star, or an **eye** ("your eye") — as ÉDIT's mark.
 
 ---
 
@@ -106,7 +106,7 @@ Stop thinking "sections of a magazine," start thinking "things a second brain do
 
 ## PROMPT — paste this into Claude
 
-> I'm designing **Nishi**, a **second brain for style** — a personal, associative web of the fashion
+> I'm designing **ÉDIT**, a **second brain for style** — a personal, associative web of the fashion
 > houses, pieces, looks and ideas that make up someone's taste. Think *Are.na for fashion* crossed
 > with a hand-kept scrapbook: you follow houses, capture what you love, discover adjacent labels, keep
 > a style diary, and build boards — and the *connections* between everything (shared tags, adjacent
@@ -161,4 +161,3 @@ few base64 images if you want real thumbnails.
 - `edit-web/` — React + Vite + TS frontend (feed, discover, boards, diary, brand pages).
 - `prototype/edit.html` — the v1 "magazine" design (the *before*).
 - Backend serves real data: 84 houses, products, editorial runway looks, tags, discovery recs.
-  (App/code still uses the working name "edit"; renaming to Nishi is a later, separate pass.)

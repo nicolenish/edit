@@ -1232,7 +1232,7 @@ def _pattern_detail(tag):
         return None
     return {
         "id": pattern_id(tag), "type": "pattern", "kind": "Kindred · from your saves",
-        "title": pat.label, "desc": f"Nishi noticed this: {pat.weight} saves across "
+        "title": pat.label, "desc": f"ÉDIT noticed this: {pat.weight} saves across "
         f"{len(pat.houses)} houses and {len(pat.categories)} categories.", "image": None,
         "tags": sorted(pat.categories),
         "meta": [{"k": "Weight", "v": f"{pat.weight} saves"},

@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
-_UA = "NishiAlmanac/0.1 (personal fashion research; contact https://github.com/nicolenish/edit)"
+_UA = "EditAlmanac/0.1 (personal fashion research; contact https://github.com/nicolenish/edit)"
 
 # Words that make a Commons hit likely to BE a garment/object photo…
 _GARMENT = re.compile(

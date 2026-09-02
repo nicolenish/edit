@@ -69,7 +69,7 @@ export const MOCK_DETAILS: Record<string, NodeDetail> = {
   },
   stiff: {
     id: 'stiff', type: 'pattern', kind: 'Pattern · derived from you', title: 'Stiff collars',
-    desc: 'Nishi noticed this one, you did not: nine saves across four houses and two decades, all with a neck that holds its shape.',
+    desc: 'ÉDIT noticed this one, you did not: nine saves across four houses and two decades, all with a neck that holds its shape.',
     tags: ['collar', 'stiff', 'structure'],
     meta: [{ k: 'First seen', v: 'Feb 2025' }, { k: 'Weight', v: '9 saves · strongest pattern' }, { k: 'Feeds', v: 'The collar theory' }],
     connected: [], boards: MOCK_BOARDS.map((b) => ({ id: b.id, name: b.name })), isHouse: false, canPin: true,
@@ -83,14 +83,14 @@ export const MOCK_DETAILS: Record<string, NodeDetail> = {
   },
   tsuki: {
     id: 'tsuki', type: 'house', kind: 'House · suggested', title: 'Tsuki Atelier',
-    desc: 'Adjacent to Maison Oda on three tags. You have not followed them yet — Nishi keeps putting them in front of you.',
+    desc: 'Adjacent to Maison Oda on three tags. You have not followed them yet — ÉDIT keeps putting them in front of you.',
     tags: ['japanese', 'sculptural', 'undyed'],
     meta: [{ k: 'City', v: 'Kyoto' }, { k: 'Tier', v: 'Contemporary' }, { k: 'Why', v: '3 shared tags with Maison Oda' }],
     connected: [], boards: [], isHouse: true, canPin: true,
   },
   fleuve: {
     id: 'fleuve', type: 'house', kind: 'House · suggested', title: 'Atelier Fleuve',
-    desc: 'Makes the bias slip you clipped in June. Nishi thinks the undyed pattern runs through their whole catalogue.',
+    desc: 'Makes the bias slip you clipped in June. ÉDIT thinks the undyed pattern runs through their whole catalogue.',
     tags: ['bias', 'undyed', 'french'],
     meta: [{ k: 'City', v: 'Paris' }, { k: 'Tier', v: 'Contemporary' }, { k: 'Why', v: '2 shared tags · one piece saved' }],
     connected: [], boards: [], isHouse: true, canPin: true,
@@ -118,7 +118,7 @@ export const MOCK_DETAILS: Record<string, NodeDetail> = {
   },
   runway: {
     id: 'runway', type: 'clipping', kind: 'Clipping · node', title: 'Look 22, autumn',
-    desc: 'Same neckline three seasons on. You linked this to the bias slip yourself — the only link here Nishi did not suggest.',
+    desc: 'Same neckline three seasons on. You linked this to the bias slip yourself — the only link here ÉDIT did not suggest.',
     tags: ['collar', 'runway', 'archive'],
     meta: [{ k: 'Source', v: 'Runway, autumn 2024' }, { k: 'Clipped', v: 'Jun 29 · from Instagram' }, { k: 'Your link', v: 'Bias slip — "forty years apart"' }],
     connected: [], boards: MOCK_BOARDS.map((b) => ({ id: b.id, name: b.name })), isHouse: false, canPin: true,
