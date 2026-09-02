@@ -4,6 +4,14 @@ Follow independent & major fashion houses, pin what you love, browse by occasion
 tier, and keep a style diary. Shoppable brands are pulled live from their Shopify catalogues;
 runway-only houses come in as editorial profiles.
 
+![The taste graph — houses, pieces and derived patterns on one desk, with the lines that connect them](edit-screenshot.png)
+
+The desk is the whole app. Houses you follow, pieces you have pinned and patterns
+derived from both sit on one surface; solid lines are relationships you made, dotted
+lines are ones the graph inferred, and the coloured ones say *why* two houses are
+kindred — aesthetic, where they were founded, or price point. Drag a card and the
+lines follow.
+
 Stack: **Django 4.2 + DRF** (backend), **React 18 + Vite + TypeScript** (frontend),
 **SQLite** for local dev (one env var away from Postgres).
 
