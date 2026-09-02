@@ -1,7 +1,6 @@
 # Plan: keeping the taste graph legible — lenses, focus, clusters + authored boards
 
-Status: **proposal, for Nicole's review.** Nothing here is built yet. Once approved I'll
-execute in the phased order at the end.
+Status: **proposal.** Nothing here is built yet; the phased order is at the end.
 
 ---
 
@@ -186,7 +185,7 @@ Also worth doing early and cheaply, independent of the above: **cap clips on the
 
 ---
 
-## Open questions for Nicole
+## Open questions
 
 1. **Lens origin** — system-suggested facets, hand-saved views, or both? *(Recommend
    both; ship auto-facets first so it's useful day one.)*
@@ -203,7 +202,7 @@ Also worth doing early and cheaply, independent of the above: **cap clips on the
 
 ---
 
-## Decisions (Nicole)
+## Decisions
 
 1. Lens origin — **both** (auto-facets + hand-saved).
 2. Saved-lens storage — **local** (localStorage).

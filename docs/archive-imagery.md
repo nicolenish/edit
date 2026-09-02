@@ -65,7 +65,7 @@ Idempotent, cached per (brand, collection), like the enrichment commands.
 - **Phase 3 (only if warranted):** license a runway archive (Getty or Launchmetrics) for
   comprehensive per-collection runway looks. This is the paid, high-coverage tier.
 
-## 5. Open questions for Nicole
+## 5. Open questions
 
 1. **Budget** — any appetite for a licensed source (Tier 3), or stay entirely free/legal (Tiers 1–2)?
 2. **Image type** — is museum *object* photography (a garment on a mannequin/flat) acceptable where
@@ -79,7 +79,7 @@ The Met's open-access API for the canonical houses. Revisit Tier 3 only if the c
 
 ---
 
-## Decided (Nicole)
+## Decided
 
 - **Free/legal only** — Tiers 1–2. No licensed source (Tier 3) for now.
 - **Museum object photography is acceptable** where runway isn't legally available — unlocks
