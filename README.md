@@ -5,7 +5,7 @@ tier, and keep a style diary. Shoppable brands are pulled live from their Shopif
 runway-only houses come in as editorial profiles.
 
 Stack: **Django 4.2 + DRF** (backend), **React 18 + Vite + TypeScript** (frontend),
-**SQLite** for local dev (one env var away from Postgres). Mirrors the `network_ai` layout.
+**SQLite** for local dev (one env var away from Postgres).
 
 ## Layout
 ```
@@ -56,7 +56,7 @@ GET /taste/                                  "your eye, so far" readout from pin
 
 ## Notes
 - **Single-user v0** — no auth yet; personal data (pins/follows/boards) is global. Multi-user
-  is a later phase (add a `user` FK + JWT, mirroring network_ai).
+  is a later phase (add a `user` FK + JWT).
 - The seed carries a curated subset per brand; run the live ingest endpoint to pull a brand's
   full catalogue (e.g. Totême returns ~250 products).
 - Editorial houses show real runway images where the house's own site allows hotlinking

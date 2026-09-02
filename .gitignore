@@ -23,3 +23,7 @@ following.json
 
 # uploaded clip images (local media)
 media/
+
+# knowledge-graph tool output and local agent config
+graphify-out/
+CLAUDE.md
